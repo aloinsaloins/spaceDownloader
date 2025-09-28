@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "space-downloader-core",
+    "space-downloader-gui",
+]
+resolver = "2"

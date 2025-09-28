@@ -1,0 +1,41 @@
+# OS-specific artefacts
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# IDE and tooling folders
+.vs/
+.idea/
+.vscode/
+
+# Rust build output
+/target/
+**/target/
+**/*.rs.bk
+
+# .NET build output
+[Bb]in/
+[Oo]bj/
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.cache
+*.pdb
+*.ipdb
+*.VC.db
+*.opendb
+*.dbmdl
+
+# Test and profiling artefacts
+TestResult*/
+TestResults/
+*.psess
+*.vsp
+*.vsps
+*.coverage
+
+# Logs and temp files
+*.log
+*.tlog
+*.tmp
