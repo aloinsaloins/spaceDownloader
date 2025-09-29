@@ -39,3 +39,6 @@ TestResults/
 *.log
 *.tlog
 *.tmp
+
+# Claude Code local settings
+.claude/settings.local.json
