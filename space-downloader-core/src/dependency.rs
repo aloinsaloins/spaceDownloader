@@ -117,16 +117,49 @@ async fn check_binary(binary: &str, args: &[&str]) -> Result<DependencyCheck, De
     }
 }
 
+/// Get the directory where the current executable is located
+fn get_executable_dir() -> Option<PathBuf> {
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe_path| exe_path.parent().map(|p| p.to_path_buf()))
+}
+
+/// Resolve binary path with the following priority:
+/// 1. If candidate is an absolute/relative path, check if it exists
+/// 2. Check in the same directory as the executable
+/// 3. Check in PATH
 fn resolve_binary(candidate: &Path) -> Option<PathBuf> {
+    // If candidate is a multi-component path, treat it as absolute/relative path
     if candidate.components().count() > 1 {
         if candidate.exists() {
-            Some(candidate.to_path_buf())
+            return Some(candidate.to_path_buf());
         } else {
-            None
+            return None;
         }
-    } else {
-        which::which(candidate).ok()
     }
+
+    // Get the binary filename
+    let binary_name = candidate.file_name()?;
+
+    // Priority 1: Check in executable directory
+    if let Some(exe_dir) = get_executable_dir() {
+        // Windows: check both with and without .exe extension
+        #[cfg(target_os = "windows")]
+        {
+            let with_exe = exe_dir.join(format!("{}.exe", binary_name.to_string_lossy()));
+            if with_exe.exists() {
+                return Some(with_exe);
+            }
+        }
+
+        let bundled_path = exe_dir.join(binary_name);
+        if bundled_path.exists() {
+            return Some(bundled_path);
+        }
+    }
+
+    // Priority 2: Check in PATH
+    which::which(candidate).ok()
 }
 
 fn parse_version(text: &str) -> Option<&str> {
