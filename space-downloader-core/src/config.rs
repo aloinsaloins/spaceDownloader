@@ -10,7 +10,7 @@ use crate::error::ConfigError;
 static DEFAULT_PROJECT_DIRS: Lazy<Option<ProjectDirs>> =
     Lazy::new(|| ProjectDirs::from("com", "space-downloader", "space-downloader"));
 
-pub const CONFIG_RELATIVE_PATH: &str = "config/space_downloader.toml";
+pub const CONFIG_RELATIVE_PATH: &str = "space_downloader.toml";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -135,11 +135,15 @@ impl Default for GeneralSettings {
 }
 
 fn default_download_dir() -> PathBuf {
-    if let Some(project_dirs) = DEFAULT_PROJECT_DIRS.as_ref() {
-        project_dirs.data_dir().join("downloads")
-    } else {
-        PathBuf::from("downloads")
+    // Get the directory where the executable is located
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            return exe_dir.join("downloads");
+        }
     }
+    
+    // Fallback to current directory if executable path cannot be determined
+    PathBuf::from("downloads")
 }
 
 fn default_language() -> String {
