@@ -138,12 +138,12 @@ fn default_download_dir() -> PathBuf {
     // Get the directory where the executable is located
     if let Ok(exe_path) = std::env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
-            return exe_dir.join("downloads");
+            return exe_dir.to_path_buf();
         }
     }
     
     // Fallback to current directory if executable path cannot be determined
-    PathBuf::from("downloads")
+    PathBuf::from(".")
 }
 
 fn default_language() -> String {
