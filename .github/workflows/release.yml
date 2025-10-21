@@ -1,0 +1,146 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform.target }}
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: space-downloader-gui.exe
+            asset_name: space-downloader-windows-x64.exe
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: space-downloader-gui
+            asset_name: space-downloader-linux-x64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: space-downloader-gui
+            asset_name: space-downloader-macos-x64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: space-downloader-gui
+            asset_name: space-downloader-macos-arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform.target }}
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-${{ matrix.platform.target }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Linux dependencies
+        if: matrix.platform.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libwayland-dev
+
+      - name: Build release binary
+        run: cargo build --release --package space-downloader-gui --target ${{ matrix.platform.target }}
+
+      - name: Strip binary (Linux and macOS)
+        if: matrix.platform.os != 'windows-latest'
+        run: strip target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform.asset_name }}
+          path: target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Create ZIP archives
+        run: |
+          cd artifacts
+          for dir in */; do
+            dirname="${dir%/}"
+            cd "$dirname"
+            if [ -f space-downloader-gui.exe ]; then
+              zip "../${dirname}.zip" space-downloader-gui.exe
+            else
+              chmod +x space-downloader-gui
+              zip "../${dirname}.zip" space-downloader-gui
+            fi
+            cd ..
+          done
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/*.zip
+          body: |
+            ## Space Downloader ${{ steps.get_version.outputs.VERSION }}
+
+            ### Downloads
+            - Windows (x64): `space-downloader-windows-x64.zip`
+            - Linux (x64): `space-downloader-linux-x64.zip`
+            - macOS (Intel): `space-downloader-macos-x64.zip`
+            - macOS (Apple Silicon): `space-downloader-macos-arm64.zip`
+
+            ### Requirements
+            - [yt-dlp](https://github.com/yt-dlp/yt-dlp) must be installed and available in PATH
+            - [ffmpeg](https://ffmpeg.org/) must be installed and available in PATH
+
+            ### Installation
+            1. Download the appropriate ZIP file for your platform
+            2. Extract the executable
+            3. Run the application
+
+            ### Changes
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
