@@ -529,6 +529,7 @@ fn build_command(job: &JobRuntime) -> Command {
     // Hide command window on Windows
     #[cfg(target_os = "windows")]
     {
+        #[allow(unused_imports)]
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         command.creation_flags(CREATE_NO_WINDOW);
@@ -544,10 +545,10 @@ fn build_command(job: &JobRuntime) -> Command {
     command.arg("--progress");
     command.arg("--newline");
 
-    let output_template = job.request.output_dir.join("%(title)s [%(id)s].%(ext)s");
+    let output_template = job.request.output_dir.join("%(title)s.%(ext)s");
     command
         .arg("--output")
-        .arg(output_template.to_string_lossy().to_string());
+        .arg(&output_template);
 
     if let Some(cookie) = &job.request.cookie_file {
         command.arg("--cookies").arg(cookie);
