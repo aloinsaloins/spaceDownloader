@@ -4,6 +4,7 @@ mod localization;
 
 use std::collections::HashMap;
 use std::fmt;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -60,6 +61,7 @@ enum Message {
     StartDownload,
     DownloadQueued(SharedJobResult),
     CancelDownload(Uuid),
+    OpenFolder(PathBuf),
     Tick,
 }
 
@@ -112,6 +114,7 @@ struct JobTracker {
     last_progress: Option<ProgressSnapshot>,
     logs: Vec<String>,
     summary: Option<DownloadSummary>,
+    folder_opened: bool,
 }
 
 impl JobTracker {
@@ -133,10 +136,13 @@ impl JobTracker {
             last_progress: None,
             logs: Vec::new(),
             summary: None,
+            folder_opened: false,
         }
     }
 
-    fn poll(&mut self) {
+    fn poll(&mut self) -> Option<PathBuf> {
+        let mut folder_to_open = None;
+
         if let Some(events_rx) = self.events_rx.as_mut() {
             while let Ok(event) = events_rx.try_recv() {
                 match event {
@@ -155,6 +161,16 @@ impl JobTracker {
                     DownloadEvent::Completed(summary) => {
                         self.summary = Some(summary.clone());
                         self.last_status = summary.status;
+                        
+                        // Auto-open folder on completion
+                        if !self.folder_opened && summary.status == JobStatus::Succeeded {
+                            if let Some(file_path) = &summary.file_path {
+                                if let Some(parent) = file_path.parent() {
+                                    folder_to_open = Some(parent.to_path_buf());
+                                    self.folder_opened = true;
+                                }
+                            }
+                        }
                     }
                     DownloadEvent::Failed(message) => {
                         self.last_status = JobStatus::Failed;
@@ -175,6 +191,8 @@ impl JobTracker {
         if let Some(progress) = self.progress_rx.borrow().clone() {
             self.last_progress = Some(progress);
         }
+
+        folder_to_open
     }
 
     fn is_finished(&self) -> bool {
@@ -217,12 +235,29 @@ impl JobTracker {
             column = column.push(Text::new(last.clone()).size(12));
         }
 
+        // Button row for actions
+        let mut button_row = Row::new().spacing(8);
+        
         if !self.is_finished() {
-            column = column.push(
+            button_row = button_row.push(
                 button(Text::new(localizer.text("button-cancel")))
                     .on_press(Message::CancelDownload(self.id)),
             );
+        } else if let Some(summary) = &self.summary {
+            // Show "Open Folder" button if download completed successfully
+            if matches!(self.last_status, JobStatus::Succeeded) {
+                if let Some(file_path) = &summary.file_path {
+                    if let Some(parent) = file_path.parent() {
+                        button_row = button_row.push(
+                            button(Text::new(localizer.text("job-open-folder")))
+                                .on_press(Message::OpenFolder(parent.to_path_buf())),
+                        );
+                    }
+                }
+            }
         }
+
+        column = column.push(button_row);
 
         Container::new(column)
             .padding(12)
@@ -342,10 +377,21 @@ impl AppState {
                 }
                 Task::none()
             }
+            Message::OpenFolder(path) => {
+                if let Err(e) = open_folder_in_explorer(&path) {
+                    tracing::error!("Failed to open folder: {}", e);
+                }
+                Task::none()
+            }
             Message::Tick => {
                 for id in &self.job_order {
                     if let Some(job) = self.jobs.get_mut(id) {
-                        job.poll();
+                        if let Some(folder_path) = job.poll() {
+                            // Auto-open folder on completion
+                            if let Err(e) = open_folder_in_explorer(&folder_path) {
+                                tracing::error!("Failed to auto-open folder: {}", e);
+                            }
+                        }
                     }
                 }
                 Task::none()
@@ -532,4 +578,29 @@ fn format_eta(duration: Duration) -> String {
     } else {
         format!("{}s", seconds)
     }
+}
+
+fn open_folder_in_explorer(path: &std::path::Path) -> std::io::Result<()> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(path)
+            .spawn()?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(path)
+            .spawn()?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(path)
+            .spawn()?;
+    }
+
+    Ok(())
 }
