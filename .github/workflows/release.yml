@@ -21,6 +21,14 @@ jobs:
             target: x86_64-pc-windows-msvc
             artifact_name: space-downloader-gui.exe
             asset_name: space-downloader-windows-x64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: space-downloader-gui
+            asset_name: space-downloader-macos-arm64
+          - os: macos-13
+            target: x86_64-apple-darwin
+            artifact_name: space-downloader-gui
+            asset_name: space-downloader-macos-x64
 
     steps:
       - name: Checkout code
@@ -143,7 +151,9 @@ jobs:
             ## Space Downloader ${{ steps.get_version.outputs.VERSION }}
 
             ### Downloads
-            - Windows (x64): `space-downloader-windows-x64.zip`
+            - **Windows (x64)**: `space-downloader-windows-x64.zip`
+            - **macOS (Apple Silicon - M1/M2/M3)**: `space-downloader-macos-arm64.zip`
+            - **macOS (Intel)**: `space-downloader-macos-x64.zip`
 
             ### What's Included
             Each ZIP file contains:
@@ -155,9 +165,17 @@ jobs:
             **No additional dependencies required!** All necessary tools are bundled.
 
             ### Installation
-            1. Download the ZIP file for your platform
+
+            #### Windows
+            1. Download `space-downloader-windows-x64.zip`
             2. Extract all files to a folder
-            3. Run `space-downloader-gui.exe` (Windows) or `space-downloader-gui` (Linux/macOS)
+            3. Run `space-downloader-gui.exe`
+
+            #### macOS
+            1. Download the appropriate ZIP for your Mac (ARM64 for M1/M2/M3, x64 for Intel)
+            2. Extract all files to a folder
+            3. Run `space-downloader-gui`
+            4. If you see a security warning, go to System Preferences → Security & Privacy and allow the app to run
 
             ### Changes
             See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.

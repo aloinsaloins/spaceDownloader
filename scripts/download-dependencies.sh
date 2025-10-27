@@ -35,11 +35,57 @@ echo ""
 echo "Downloading ffmpeg..."
 
 if [ "$OS_TYPE" = "Darwin" ]; then
-    # macOS - Download from official builds
-    echo "For macOS, please install ffmpeg using Homebrew:"
-    echo "  brew install ffmpeg"
-    echo ""
-    echo "Or download from: https://ffmpeg.org/download.html#build-mac"
+    # macOS - Download static builds
+    ARCH=$(uname -m)
+
+    if [ "$ARCH" = "arm64" ]; then
+        # Apple Silicon (M1/M2/M3)
+        FFMPEG_URL="https://www.osxexperts.net/ffmpeg7arm.zip"
+        FFMPEG_ARCHIVE="$OUTPUT_DIR/ffmpeg.zip"
+
+        echo "Downloading ffmpeg for Apple Silicon..."
+        curl -L "$FFMPEG_URL" -o "$FFMPEG_ARCHIVE"
+
+        echo "Extracting ffmpeg..."
+        unzip -q "$FFMPEG_ARCHIVE" -d "$OUTPUT_DIR"
+
+        # The archive contains ffmpeg and ffprobe directly
+        if [ -f "$OUTPUT_DIR/ffmpeg" ]; then
+            chmod +x "$OUTPUT_DIR/ffmpeg"
+            chmod +x "$OUTPUT_DIR/ffprobe"
+            echo "ffmpeg and ffprobe extracted to: $OUTPUT_DIR"
+            rm -f "$FFMPEG_ARCHIVE"
+        else
+            echo "Failed to extract ffmpeg binaries"
+            rm -f "$FFMPEG_ARCHIVE"
+            exit 1
+        fi
+    elif [ "$ARCH" = "x86_64" ]; then
+        # Intel Mac
+        FFMPEG_URL="https://www.osxexperts.net/ffmpeg7intel.zip"
+        FFMPEG_ARCHIVE="$OUTPUT_DIR/ffmpeg.zip"
+
+        echo "Downloading ffmpeg for Intel Mac..."
+        curl -L "$FFMPEG_URL" -o "$FFMPEG_ARCHIVE"
+
+        echo "Extracting ffmpeg..."
+        unzip -q "$FFMPEG_ARCHIVE" -d "$OUTPUT_DIR"
+
+        if [ -f "$OUTPUT_DIR/ffmpeg" ]; then
+            chmod +x "$OUTPUT_DIR/ffmpeg"
+            chmod +x "$OUTPUT_DIR/ffprobe"
+            echo "ffmpeg and ffprobe extracted to: $OUTPUT_DIR"
+            rm -f "$FFMPEG_ARCHIVE"
+        else
+            echo "Failed to extract ffmpeg binaries"
+            rm -f "$FFMPEG_ARCHIVE"
+            exit 1
+        fi
+    else
+        echo "Unsupported macOS architecture: $ARCH"
+        echo "Please install ffmpeg using Homebrew: brew install ffmpeg"
+        exit 1
+    fi
 elif [ "$OS_TYPE" = "Linux" ]; then
     # Linux - Download static build
     ARCH=$(uname -m)
