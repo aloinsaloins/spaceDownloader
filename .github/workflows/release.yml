@@ -62,11 +62,35 @@ jobs:
         if: matrix.platform.os != 'windows-latest'
         run: strip target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
 
+      - name: Download dependencies (Windows)
+        if: matrix.platform.os == 'windows-latest'
+        run: |
+          mkdir bundle
+          copy target\${{ matrix.platform.target }}\release\${{ matrix.platform.artifact_name }} bundle\
+          pwsh -ExecutionPolicy Bypass -File scripts\download-dependencies.ps1 -OutputDir bundle
+        shell: cmd
+
+      - name: Download dependencies (Linux)
+        if: matrix.platform.os == 'ubuntu-latest'
+        run: |
+          mkdir -p bundle
+          cp target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }} bundle/
+          chmod +x scripts/download-dependencies.sh
+          ./scripts/download-dependencies.sh bundle
+
+      - name: Download dependencies (macOS)
+        if: matrix.platform.os == 'macos-latest'
+        run: |
+          mkdir -p bundle
+          cp target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }} bundle/
+          chmod +x scripts/download-dependencies.sh
+          ./scripts/download-dependencies.sh bundle
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform.asset_name }}
-          path: target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
+          path: bundle/
 
   release:
     name: Create Release
@@ -90,10 +114,15 @@ jobs:
             dirname="${dir%/}"
             cd "$dirname"
             if [ -f space-downloader-gui.exe ]; then
-              zip "../${dirname}.zip" space-downloader-gui.exe
+              # Windows: include exe and dependencies
+              zip -r "../${dirname}.zip" *
             else
-              chmod +x space-downloader-gui
-              zip "../${dirname}.zip" space-downloader-gui
+              # Linux/macOS: include binary and dependencies
+              chmod +x space-downloader-gui 2>/dev/null || true
+              chmod +x yt-dlp 2>/dev/null || true
+              chmod +x ffmpeg 2>/dev/null || true
+              chmod +x ffprobe 2>/dev/null || true
+              zip -r "../${dirname}.zip" *
             fi
             cd ..
           done
@@ -116,14 +145,19 @@ jobs:
             ### Downloads
             - Windows (x64): `space-downloader-windows-x64.zip`
 
-            ### Requirements
-            - [yt-dlp](https://github.com/yt-dlp/yt-dlp) must be installed and available in PATH
-            - [ffmpeg](https://ffmpeg.org/) must be installed and available in PATH
+            ### What's Included
+            Each ZIP file contains:
+            - Space Downloader executable
+            - yt-dlp (latest version)
+            - ffmpeg (latest version)
+            - ffprobe (latest version)
+
+            **No additional dependencies required!** All necessary tools are bundled.
 
             ### Installation
-            1. Download the ZIP file
-            2. Extract the executable
-            3. Run the application
+            1. Download the ZIP file for your platform
+            2. Extract all files to a folder
+            3. Run `space-downloader-gui.exe` (Windows) or `space-downloader-gui` (Linux/macOS)
 
             ### Changes
             See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
