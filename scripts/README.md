@@ -4,7 +4,19 @@ These scripts automatically download yt-dlp and ffmpeg binaries for bundling wit
 
 ## Usage
 
-### Windows (PowerShell)
+### Windows (Batch) - Recommended
+
+```batch
+REM Download to default location (.\deps)
+.\download-dependencies.bat
+
+REM Download to custom location
+.\download-dependencies.bat "C:\path\to\output"
+```
+
+**Note:** The batch file (`.bat`) is the easiest option for Windows and doesn't require changing execution policies.
+
+### Windows (PowerShell) - Alternative
 
 ```powershell
 # Download to default location (.\deps)
@@ -12,6 +24,14 @@ These scripts automatically download yt-dlp and ffmpeg binaries for bundling wit
 
 # Download to custom location
 .\download-dependencies.ps1 -OutputDir "C:\path\to\output"
+
+# If you get an execution policy error, use this instead:
+PowerShell -ExecutionPolicy Bypass -File .\download-dependencies.ps1 -OutputDir ".\deps"
+```
+
+**Note:** If you encounter a "running scripts is disabled" error, Windows PowerShell execution policy is blocking the script. Use the `-ExecutionPolicy Bypass` option shown above, or run PowerShell as Administrator and execute:
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
 ### Linux/macOS (Bash)
