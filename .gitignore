@@ -42,3 +42,7 @@ TestResults/
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Downloaded dependencies
+deps/
+test-deps/
