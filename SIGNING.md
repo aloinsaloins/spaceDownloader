@@ -8,18 +8,9 @@ This document explains how to configure GitHub Actions for automatic code signin
 2. **Developer ID Application Certificate** (obtained from Apple Developer portal)
 3. **App-Specific Password** (for notarytool)
 
-## Enable Code Signing
-
-### 1. Enable Signing Variable
-
-Navigate to your repository's **Settings → Secrets and variables → Actions → Variables** and add:
-
-- **Name**: `ENABLE_MACOS_SIGNING`
-- **Value**: `true`
-
-This controls whether the signing steps will run during the release build.
-
 ## Required GitHub Secrets
+
+**Important**: Code signing is automatically enabled when `APPLE_CERTIFICATE_BASE64` secret is configured. No additional variables needed.
 
 Navigate to your repository's **Settings → Secrets and variables → Actions → Secrets** and add the following secrets:
 
