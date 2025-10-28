@@ -42,18 +42,16 @@ spaceDownloader/
 [GitHub Releases](https://github.com/aloinsaloins/spaceDownloader/releases) から最新版をダウンロードできます:
 
 - **Windows (x64)**: `space-downloader-windows-x64.zip`
-- **macOS (Apple Silicon - M1/M2/M3)**: `space-downloader-macos-arm64.zip`
-- **macOS (Intel)**: `space-downloader-macos-x64.zip`
+- **macOS (Apple Silicon - M1/M2/M3/M4)**: `space-downloader-macos-arm64.zip`
 
 各ZIPファイルには、実行ファイルと必要な依存関係（yt-dlp、ffmpeg）が含まれています。追加のインストールは不要です。
 
-#### macOS での実行方法
-初回起動時、署名されていないアプリケーションとして認識される場合があります:
-1. アプリを右クリック
-2. 「開く」を選択
-3. 警告ダイアログで「開く」ボタンをクリック
+> **注**: Intel Mac向けのビルドは提供していません。Apple Siliconバイナリは、Rosetta 2経由でIntel Macでも動作します。
 
-または、ターミナルから:
+#### macOS での実行方法
+バイナリはAppleによって署名・公証されているため、通常は警告なく実行できます。
+
+もし問題が発生した場合、ターミナルから:
 ```sh
 xattr -d com.apple.quarantine space-downloader-gui
 ./space-downloader-gui
@@ -162,8 +160,9 @@ cargo test --package space-downloader-core -- --ignored
 
 2. **GitHub Actionsが自動実行**:
    - タグがプッシュされると、`.github/workflows/release.yml`が自動的に実行されます
-   - Windows、macOS（ARM64とIntel）用のバイナリがビルドされます
+   - Windows、macOS（Apple Silicon）用のバイナリがビルドされます
    - `yt-dlp`と`ffmpeg`が自動的にダウンロードされ、バンドルされます
+   - macOSバイナリはAppleによって署名・公証されます
    - すべてのファイルがZIPアーカイブにパッケージ化されます
 
 3. **リリースの確認**:
@@ -237,18 +236,16 @@ spaceDownloader/
 Download the latest version from [GitHub Releases](https://github.com/aloinsaloins/spaceDownloader/releases):
 
 - **Windows (x64)**: `space-downloader-windows-x64.zip`
-- **macOS (Apple Silicon - M1/M2/M3)**: `space-downloader-macos-arm64.zip`
-- **macOS (Intel)**: `space-downloader-macos-x64.zip`
+- **macOS (Apple Silicon - M1/M2/M3/M4)**: `space-downloader-macos-arm64.zip`
 
 Each ZIP file includes the executable and all required dependencies (yt-dlp, ffmpeg). No additional installation needed.
 
-#### macOS Security Notice
-On first run, you may see a security warning for unsigned applications:
-1. Right-click the app
-2. Select "Open"
-3. Click "Open" in the security dialog
+> **Note**: Intel Mac builds are not provided. Apple Silicon binaries work on Intel Macs via Rosetta 2.
 
-Or, from Terminal:
+#### macOS Security Notice
+Binaries are code-signed and notarized by Apple, so they should run without security warnings.
+
+If you encounter issues, from Terminal:
 ```sh
 xattr -d com.apple.quarantine space-downloader-gui
 ./space-downloader-gui
@@ -356,8 +353,9 @@ This project uses GitHub Actions to automatically build binaries for Windows, ma
 
 2. **GitHub Actions runs automatically**:
    - When the tag is pushed, `.github/workflows/release.yml` automatically executes
-   - Builds binaries for Windows, macOS (ARM64 and Intel)
+   - Builds binaries for Windows and macOS (Apple Silicon)
    - Automatically downloads and bundles `yt-dlp` and `ffmpeg`
+   - Code-signs and notarizes macOS binaries with Apple
    - Packages everything into ZIP archives
 
 3. **Check the release**:

@@ -25,10 +25,6 @@ jobs:
             target: aarch64-apple-darwin
             artifact_name: space-downloader-gui
             asset_name: space-downloader-macos-arm64
-          - os: macos-13
-            target: x86_64-apple-darwin
-            artifact_name: space-downloader-gui
-            asset_name: space-downloader-macos-x64
 
     steps:
       - name: Checkout code
@@ -71,14 +67,14 @@ jobs:
         run: strip target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
 
       - name: Import Code-Signing Certificates (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13')
+        if: matrix.platform.os == 'macos-latest'
         uses: Apple-Actions/import-codesign-certs@v3
         with:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
 
       - name: Sign Binary (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13')
+        if: matrix.platform.os == 'macos-latest'
         run: |
           codesign --force --sign "Developer ID Application: ${{ secrets.APPLE_SIGNING_IDENTITY }}" \
             --options runtime \
@@ -107,7 +103,7 @@ jobs:
           ./scripts/download-dependencies.sh bundle
 
       - name: Download dependencies (macOS)
-        if: matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13'
+        if: matrix.platform.os == 'macos-latest'
         run: |
           mkdir -p bundle
           cp target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }} bundle/
@@ -115,7 +111,7 @@ jobs:
           ./scripts/download-dependencies.sh bundle
 
       - name: Sign bundled dependencies (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13')
+        if: matrix.platform.os == 'macos-latest'
         run: |
           # Sign yt-dlp, ffmpeg, ffprobe if present
           for binary in bundle/yt-dlp bundle/ffmpeg bundle/ffprobe; do
@@ -131,7 +127,7 @@ jobs:
           echo "All dependencies signed successfully"
 
       - name: Create ZIP for Notarization (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13')
+        if: matrix.platform.os == 'macos-latest'
         run: |
           cd bundle
           zip -r ../notarization.zip .
@@ -139,7 +135,7 @@ jobs:
           echo "Created ZIP for notarization: $(ls -lh notarization.zip)"
 
       - name: Notarize with Apple (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13')
+        if: matrix.platform.os == 'macos-latest'
         run: |
           echo "Submitting to Apple notarization service..."
           xcrun notarytool submit notarization.zip \
@@ -209,8 +205,7 @@ jobs:
 
             ### Downloads
             - **Windows (x64)**: `space-downloader-windows-x64.zip`
-            - **macOS (Apple Silicon - M1/M2/M3)**: `space-downloader-macos-arm64.zip`
-            - **macOS (Intel)**: `space-downloader-macos-x64.zip`
+            - **macOS (Apple Silicon - M1/M2/M3/M4)**: `space-downloader-macos-arm64.zip`
 
             ### What's Included
             Each ZIP file contains:
@@ -229,11 +224,11 @@ jobs:
             3. Run `space-downloader-gui.exe`
 
             #### macOS
-            1. Download the appropriate ZIP for your Mac (ARM64 for M1/M2/M3, x64 for Intel)
+            1. Download `space-downloader-macos-arm64.zip`
             2. Extract all files to a folder
             3. Run `space-downloader-gui`
 
-            **Note**: On first run, you may need to right-click the app and select "Open" to bypass Gatekeeper security.
+            **Note**: Binaries are code-signed and notarized by Apple. Intel Macs can run the ARM64 binary via Rosetta 2.
 
             ### Changes
             See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
