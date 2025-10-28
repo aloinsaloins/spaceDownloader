@@ -2,6 +2,10 @@
 name = "space-downloader-gui"
 version = "1.0.3"
 edition = "2021"
+license = "MIT"
+authors = ["Space Downloader Contributors"]
+description = "Desktop GUI application for downloading Twitter/X Space audio archives"
+repository = "https://github.com/aloinsaloins/spaceDownloader"
 
 [dependencies]
 anyhow = "1.0"
