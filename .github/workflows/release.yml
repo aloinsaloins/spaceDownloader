@@ -137,6 +137,7 @@ jobs:
 
       - name: Notarize with Apple (macOS)
         if: matrix.platform.os == 'macos-latest'
+        continue-on-error: true
         run: |
           echo "Submitting to Apple notarization service..."
           xcrun notarytool submit notarization.zip \
