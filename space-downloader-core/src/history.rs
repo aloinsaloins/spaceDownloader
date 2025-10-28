@@ -259,7 +259,7 @@ fn map_entry(row: &Row<'_>) -> Result<DownloadHistoryEntry, HistoryError> {
         uploader: row
             .get("uploader")
             .map_err(|source| HistoryError::Query { source })?,
-        status: JobStatus::from_str(
+        status: JobStatus::parse_status(
             &row.get::<_, String>("status")
                 .map_err(|source| HistoryError::Query { source })?,
         ),

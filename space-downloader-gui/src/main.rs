@@ -40,7 +40,7 @@ fn main() -> iced::Result {
 }
 
 enum SpaceDownloaderApp {
-    Ready(AppState),
+    Ready(Box<AppState>),
     Failed(String),
 }
 
@@ -161,7 +161,7 @@ impl JobTracker {
                     DownloadEvent::Completed(summary) => {
                         self.summary = Some(summary.clone());
                         self.last_status = summary.status;
-                        
+
                         // Auto-open folder on completion
                         if !self.folder_opened && summary.status == JobStatus::Succeeded {
                             if let Some(file_path) = &summary.file_path {
@@ -237,7 +237,7 @@ impl JobTracker {
 
         // Button row for actions
         let mut button_row = Row::new().spacing(8);
-        
+
         if !self.is_finished() {
             button_row = button_row.push(
                 button(Text::new(localizer.text("button-cancel")))
@@ -277,7 +277,7 @@ impl SpaceDownloaderApp {
     fn initialize() -> (Self, Task<Message>) {
         match initialize_app() {
             Ok(init) => (
-                SpaceDownloaderApp::Ready(AppState::from(init)),
+                SpaceDownloaderApp::Ready(Box::new(AppState::from(init))),
                 Task::none(),
             ),
             Err(error) => (SpaceDownloaderApp::Failed(error), Task::none()),
@@ -583,23 +583,17 @@ fn format_eta(duration: Duration) -> String {
 fn open_folder_in_explorer(path: &std::path::Path) -> std::io::Result<()> {
     #[cfg(target_os = "windows")]
     {
-        std::process::Command::new("explorer")
-            .arg(path)
-            .spawn()?;
+        std::process::Command::new("explorer").arg(path).spawn()?;
     }
 
     #[cfg(target_os = "macos")]
     {
-        std::process::Command::new("open")
-            .arg(path)
-            .spawn()?;
+        std::process::Command::new("open").arg(path).spawn()?;
     }
 
     #[cfg(target_os = "linux")]
     {
-        std::process::Command::new("xdg-open")
-            .arg(path)
-            .spawn()?;
+        std::process::Command::new("xdg-open").arg(path).spawn()?;
     }
 
     Ok(())

@@ -72,7 +72,7 @@ impl JobStatus {
         }
     }
 
-    pub fn from_str(value: &str) -> JobStatus {
+    pub fn parse_status(value: &str) -> JobStatus {
         match value {
             "Queued" => JobStatus::Queued,
             "Running" => JobStatus::Running,
@@ -83,25 +83,13 @@ impl JobStatus {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ProgressSnapshot {
     pub percent: Option<f32>,
     pub downloaded_bytes: Option<u64>,
     pub total_bytes: Option<u64>,
     pub speed_bytes_per_sec: Option<u64>,
     pub eta: Option<Duration>,
-}
-
-impl Default for ProgressSnapshot {
-    fn default() -> Self {
-        Self {
-            percent: None,
-            downloaded_bytes: None,
-            total_bytes: None,
-            speed_bytes_per_sec: None,
-            eta: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -412,7 +400,7 @@ async fn execute_download(job: Arc<JobRuntime>) -> Result<DownloadSummary, Downl
         .spawn()
         .map_err(|source| DownloadError::Spawn { source })?;
     let stderr = child.stderr.take().ok_or_else(|| DownloadError::Spawn {
-        source: std::io::Error::new(std::io::ErrorKind::Other, "missing stderr"),
+        source: std::io::Error::other("missing stderr"),
     })?;
     let mut stderr_lines = BufReader::new(stderr).lines();
     let mut stderr_buffer = String::new();
@@ -525,7 +513,7 @@ async fn finalize_history(
 
 fn build_command(job: &JobRuntime) -> Command {
     let mut command = Command::new(&job.advanced_settings.yt_dlp_path);
-    
+
     // Hide command window on Windows
     #[cfg(target_os = "windows")]
     {
@@ -534,7 +522,7 @@ fn build_command(job: &JobRuntime) -> Command {
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         command.creation_flags(CREATE_NO_WINDOW);
     }
-    
+
     command.arg("--extract-audio");
     command
         .arg("--audio-format")
@@ -546,9 +534,7 @@ fn build_command(job: &JobRuntime) -> Command {
     command.arg("--newline");
 
     let output_template = job.request.output_dir.join("%(title)s.%(ext)s");
-    command
-        .arg("--output")
-        .arg(&output_template);
+    command.arg("--output").arg(&output_template);
 
     if let Some(cookie) = &job.request.cookie_file {
         command.arg("--cookies").arg(cookie);
@@ -603,24 +589,24 @@ async fn handle_process_line(job: &JobRuntime, line: &str, destination: &mut Opt
 
 fn parse_progress(line: &str) -> Option<ProgressSnapshot> {
     let captures = PROGRESS_RE.captures(line)?;
-    let mut snapshot = ProgressSnapshot::default();
-    snapshot.percent = captures
-        .name("percent")
-        .and_then(|m| m.as_str().parse::<f32>().ok());
-    snapshot.downloaded_bytes = captures.name("downloaded").and_then(|m| {
-        parse_bytes(
-            m.as_str(),
-            captures.name("downloaded_unit").map(|u| u.as_str()),
-        )
-    });
-    snapshot.total_bytes = captures
-        .name("total")
-        .and_then(|m| parse_bytes(m.as_str(), captures.name("total_unit").map(|u| u.as_str())));
-    snapshot.speed_bytes_per_sec = captures
-        .name("speed")
-        .and_then(|m| parse_speed(m.as_str(), captures.name("speed_unit").map(|u| u.as_str())));
-    snapshot.eta = captures.name("eta").and_then(|m| parse_eta(m.as_str()));
-    Some(snapshot)
+    Some(ProgressSnapshot {
+        percent: captures
+            .name("percent")
+            .and_then(|m| m.as_str().parse::<f32>().ok()),
+        downloaded_bytes: captures.name("downloaded").and_then(|m| {
+            parse_bytes(
+                m.as_str(),
+                captures.name("downloaded_unit").map(|u| u.as_str()),
+            )
+        }),
+        total_bytes: captures
+            .name("total")
+            .and_then(|m| parse_bytes(m.as_str(), captures.name("total_unit").map(|u| u.as_str()))),
+        speed_bytes_per_sec: captures
+            .name("speed")
+            .and_then(|m| parse_speed(m.as_str(), captures.name("speed_unit").map(|u| u.as_str()))),
+        eta: captures.name("eta").and_then(|m| parse_eta(m.as_str())),
+    })
 }
 
 fn parse_bytes(value: &str, unit: Option<&str>) -> Option<u64> {
@@ -745,7 +731,7 @@ fn is_info_json(path: &Path) -> bool {
 }
 fn download_error_from_history(error: HistoryError) -> DownloadError {
     DownloadError::Io {
-        source: io::Error::new(io::ErrorKind::Other, error.to_string()),
+        source: io::Error::other(error.to_string()),
     }
 }
 unsafe impl Send for JobRuntime {}

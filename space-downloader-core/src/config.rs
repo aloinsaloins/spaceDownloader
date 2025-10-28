@@ -27,23 +27,16 @@ static DEFAULT_PROJECT_DIRS: Lazy<Option<ProjectDirs>> = Lazy::new(|| {
 
 pub const CONFIG_RELATIVE_PATH: &str = "space_downloader.toml";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
+    #[serde(default)]
     pub general: GeneralSettings,
+    #[serde(default)]
     pub download: DownloadSettings,
+    #[serde(default)]
     pub advanced: AdvancedSettings,
+    #[serde(default)]
     pub logging: LogSettings,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            general: GeneralSettings::default(),
-            download: DownloadSettings::default(),
-            advanced: AdvancedSettings::default(),
-            logging: LogSettings::default(),
-        }
-    }
 }
 
 impl Config {
@@ -118,18 +111,13 @@ fn default_config_path() -> PathBuf {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ThemePreference {
     Light,
     Dark,
+    #[default]
     System,
-}
-
-impl Default for ThemePreference {
-    fn default() -> Self {
-        ThemePreference::System
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,18 +184,13 @@ fn default_language() -> String {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum AudioFormat {
+    #[default]
     M4a,
     Mp3,
     Opus,
-}
-
-impl Default for AudioFormat {
-    fn default() -> Self {
-        AudioFormat::M4a
-    }
 }
 
 impl std::fmt::Display for AudioFormat {
@@ -265,19 +248,14 @@ impl Default for AdvancedSettings {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
     Error,
     Warn,
+    #[default]
     Info,
     Debug,
-}
-
-impl Default for LogLevel {
-    fn default() -> Self {
-        LogLevel::Info
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
