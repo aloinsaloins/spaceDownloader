@@ -71,18 +71,14 @@ jobs:
         run: strip target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
 
       - name: Import Code-Signing Certificates (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && env.APPLE_CERTIFICATE_BASE64 != ''
+        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13')
         uses: Apple-Actions/import-codesign-certs@v3
         with:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        env:
-          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
 
       - name: Sign Binary (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && env.APPLE_CERTIFICATE_BASE64 != ''
-        env:
-          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13')
         run: |
           codesign --force --sign "Developer ID Application: ${{ secrets.APPLE_SIGNING_IDENTITY }}" \
             --options runtime \
@@ -119,9 +115,7 @@ jobs:
           ./scripts/download-dependencies.sh bundle
 
       - name: Sign bundled dependencies (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && env.APPLE_CERTIFICATE_BASE64 != ''
-        env:
-          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13')
         run: |
           # Sign yt-dlp, ffmpeg, ffprobe if present
           for binary in bundle/yt-dlp bundle/ffmpeg bundle/ffprobe; do
@@ -137,9 +131,7 @@ jobs:
           echo "All dependencies signed successfully"
 
       - name: Create ZIP for Notarization (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && env.APPLE_CERTIFICATE_BASE64 != ''
-        env:
-          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13')
         run: |
           cd bundle
           zip -r ../notarization.zip .
@@ -147,9 +139,7 @@ jobs:
           echo "Created ZIP for notarization: $(ls -lh notarization.zip)"
 
       - name: Notarize with Apple (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && env.APPLE_CERTIFICATE_BASE64 != ''
-        env:
-          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13')
         run: |
           echo "Submitting to Apple notarization service..."
           xcrun notarytool submit notarization.zip \
