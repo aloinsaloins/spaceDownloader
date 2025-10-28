@@ -13,7 +13,6 @@ jobs:
   build:
     name: Build ${{ matrix.platform.target }}
     runs-on: ${{ matrix.platform.os }}
-    environment: APPLE_CERTIFICATE_BASE64
     strategy:
       fail-fast: false
       matrix:
@@ -83,27 +82,9 @@ jobs:
             --deep \
             target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
 
-          # Verify signature
           codesign --verify --verbose target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
-          echo "Binary signed successfully"
 
-      - name: Download dependencies (Windows)
-        if: matrix.platform.os == 'windows-latest'
-        run: |
-          mkdir bundle
-          copy target\${{ matrix.platform.target }}\release\${{ matrix.platform.artifact_name }} bundle\
-          pwsh -ExecutionPolicy Bypass -File scripts\download-dependencies.ps1 -OutputDir bundle
-        shell: cmd
-
-      - name: Download dependencies (Linux)
-        if: matrix.platform.os == 'ubuntu-latest'
-        run: |
-          mkdir -p bundle
-          cp target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }} bundle/
-          chmod +x scripts/download-dependencies.sh
-          ./scripts/download-dependencies.sh bundle
-
-      - name: Download dependencies (macOS)
+      - name: Bundle dependencies (macOS)
         if: matrix.platform.os == 'macos-latest'
         run: |
           mkdir -p bundle
@@ -111,21 +92,14 @@ jobs:
           chmod +x scripts/download-dependencies.sh
           ./scripts/download-dependencies.sh bundle
 
-      - name: Sign bundled dependencies (macOS)
-        if: matrix.platform.os == 'macos-latest'
-        run: |
-          # Sign yt-dlp, ffmpeg, ffprobe if present
           for binary in bundle/yt-dlp bundle/ffmpeg bundle/ffprobe; do
             if [ -f "$binary" ]; then
-              echo "Signing $binary..."
               codesign --force --sign "Developer ID Application: ${{ secrets.APPLE_SIGNING_IDENTITY }}" \
                 --options runtime \
-                --timestamp \
-                "$binary"
+                --timestamp "$binary"
               codesign --verify --verbose "$binary"
             fi
           done
-          echo "All dependencies signed successfully"
 
       - name: Create ZIP for Notarization (macOS)
         if: matrix.platform.os == 'macos-latest'
@@ -133,21 +107,26 @@ jobs:
           cd bundle
           zip -r ../notarization.zip .
           cd ..
-          echo "Created ZIP for notarization: $(ls -lh notarization.zip)"
 
-      - name: Notarize with Apple (macOS)
+      - name: Notarize with Apple API Key (macOS)
         if: matrix.platform.os == 'macos-latest'
-        continue-on-error: true
+        env:
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
         run: |
-          echo "Submitting to Apple notarization service..."
+          echo "$APPLE_API_PRIVATE_KEY" | base64 --decode > AuthKey.p8
           xcrun notarytool submit notarization.zip \
-            --apple-id "${{ secrets.APPLE_ID }}" \
-            --team-id "${{ secrets.APPLE_TEAM_ID }}" \
-            --password "${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}" \
+            --key AuthKey.p8 \
+            --key-id "${{ secrets.APPLE_API_KEY_ID }}" \
+            --issuer "${{ secrets.APPLE_API_ISSUER_ID }}" \
             --wait
 
           echo "✅ Notarization completed successfully"
-          echo "Note: Binaries are notarized. Users can run them without right-click workaround."
+
+      - name: Staple notarization ticket (macOS)
+        if: matrix.platform.os == 'macos-latest'
+        run: |
+          xcrun stapler staple bundle/space-downloader-gui
+          xcrun stapler validate bundle/space-downloader-gui
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -177,10 +156,8 @@ jobs:
             dirname="${dir%/}"
             cd "$dirname"
             if [ -f space-downloader-gui.exe ]; then
-              # Windows: include exe and dependencies
               zip -r "../${dirname}.zip" *
             else
-              # Linux/macOS: include binary and dependencies
               chmod +x space-downloader-gui 2>/dev/null || true
               chmod +x yt-dlp 2>/dev/null || true
               chmod +x ffmpeg 2>/dev/null || true
@@ -210,29 +187,14 @@ jobs:
             - **macOS (Apple Silicon - M1/M2/M3/M4)**: `space-downloader-macos-arm64.zip`
 
             ### What's Included
-            Each ZIP file contains:
             - Space Downloader executable
-            - yt-dlp (latest version)
-            - ffmpeg (latest version)
-            - ffprobe (latest version)
-
-            **No additional dependencies required!** All necessary tools are bundled.
+            - yt-dlp (latest)
+            - ffmpeg / ffprobe (latest)
+            - Fully notarized & codesigned for macOS
 
             ### Installation
+            - Windows: extract & run `.exe`
+            - macOS: extract & run binary（Gatekeeper 警告なし🚀）
 
-            #### Windows
-            1. Download `space-downloader-windows-x64.zip`
-            2. Extract all files to a folder
-            3. Run `space-downloader-gui.exe`
-
-            #### macOS
-            1. Download `space-downloader-macos-arm64.zip`
-            2. Extract all files to a folder
-            3. Run `space-downloader-gui`
-
-            **Note**: Binaries are code-signed and notarized by Apple. Intel Macs can run the ARM64 binary via Rosetta 2.
-
-            ### Changes
-            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
