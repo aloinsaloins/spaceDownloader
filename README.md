@@ -36,9 +36,32 @@ spaceDownloader/
 - `ffmpeg`（音声変換に使用）
 - OS: Windows 10 以降 / macOS 13 Ventura 以降 / Linux x86_64
 
-### セットアップ
+### ダウンロード
+
+#### バイナリリリース（推奨）
+[GitHub Releases](https://github.com/aloinsaloins/spaceDownloader/releases) から最新版をダウンロードできます:
+
+- **Windows (x64)**: `space-downloader-windows-x64.zip`
+- **macOS (Apple Silicon - M1/M2/M3)**: `space-downloader-macos-arm64.zip`
+- **macOS (Intel)**: `space-downloader-macos-x64.zip`
+
+各ZIPファイルには、実行ファイルと必要な依存関係（yt-dlp、ffmpeg）が含まれています。追加のインストールは不要です。
+
+#### macOS での実行方法
+初回起動時、署名されていないアプリケーションとして認識される場合があります:
+1. アプリを右クリック
+2. 「開く」を選択
+3. 警告ダイアログで「開く」ボタンをクリック
+
+または、ターミナルから:
 ```sh
-git clone https://github.com/<your-account>/spaceDownloader.git
+xattr -d com.apple.quarantine space-downloader-gui
+./space-downloader-gui
+```
+
+### 開発者向けセットアップ
+```sh
+git clone https://github.com/aloinsaloins/spaceDownloader.git
 cd spaceDownloader
 
 # 依存コマンドが PATH に入っているか確認
@@ -157,6 +180,12 @@ cargo test --package space-downloader-core -- --ignored
 
 **追加の依存関係は不要です！** すべての必要なツールがバンドルされています。
 
+#### macOS版の署名と公証
+
+macOS版は自動的にコード署名と公証が行われます。ユーザーはセキュリティ警告なしでアプリを実行できます。
+
+署名の設定方法については、[SIGNING.md](SIGNING.md)を参照してください。
+
 ### ロードマップ
 - 設定画面と履歴ビューの GUI 実装
 - アプリ起動時の依存関係チェック UI
@@ -199,14 +228,35 @@ spaceDownloader/
 > `SpaceDownloader.Core` and `SpaceDownloader.UI` are early .NET prototypes. The active Rust implementation lives under the `space-downloader-*` directories.
 
 ### Requirements
-- Rust 1.78 or newer (Edition 2021)
-- `yt-dlp` available via PATH or configured with a full path
-- `ffmpeg` for audio conversion
 - OS: Windows 10+, macOS 13 Ventura+, or Linux x86_64
+- For development: Rust 1.78 or newer (Edition 2021)
 
-### Getting Started
+### Download
+
+#### Binary Releases (Recommended)
+Download the latest version from [GitHub Releases](https://github.com/aloinsaloins/spaceDownloader/releases):
+
+- **Windows (x64)**: `space-downloader-windows-x64.zip`
+- **macOS (Apple Silicon - M1/M2/M3)**: `space-downloader-macos-arm64.zip`
+- **macOS (Intel)**: `space-downloader-macos-x64.zip`
+
+Each ZIP file includes the executable and all required dependencies (yt-dlp, ffmpeg). No additional installation needed.
+
+#### macOS Security Notice
+On first run, you may see a security warning for unsigned applications:
+1. Right-click the app
+2. Select "Open"
+3. Click "Open" in the security dialog
+
+Or, from Terminal:
 ```sh
-git clone https://github.com/<your-account>/spaceDownloader.git
+xattr -d com.apple.quarantine space-downloader-gui
+./space-downloader-gui
+```
+
+### Developer Setup
+```sh
+git clone https://github.com/aloinsaloins/spaceDownloader.git
 cd spaceDownloader
 
 # Ensure external tools are available
@@ -323,6 +373,12 @@ Each ZIP file contains:
 - ffprobe (latest version)
 
 **No additional dependencies required!** All necessary tools are bundled.
+
+#### Code Signing and Notarization (macOS)
+
+macOS binaries are automatically code-signed and notarized. Users can run the app without security warnings.
+
+For signing setup instructions, see [SIGNING.md](SIGNING.md).
 
 ### Roadmap
 - GUI for settings and history browsing
