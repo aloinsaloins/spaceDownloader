@@ -52,8 +52,8 @@ if [ "$OS_TYPE" = "Darwin" ]; then
         # The archive contains ffmpeg and ffprobe directly
         if [ -f "$OUTPUT_DIR/ffmpeg" ]; then
             chmod +x "$OUTPUT_DIR/ffmpeg"
-            chmod +x "$OUTPUT_DIR/ffprobe"
-            echo "ffmpeg and ffprobe extracted to: $OUTPUT_DIR"
+            [ -f "$OUTPUT_DIR/ffprobe" ] && chmod +x "$OUTPUT_DIR/ffprobe"
+            echo "ffmpeg extracted to: $OUTPUT_DIR"
             rm -f "$FFMPEG_ARCHIVE"
         else
             echo "Failed to extract ffmpeg binaries"
@@ -73,8 +73,8 @@ if [ "$OS_TYPE" = "Darwin" ]; then
 
         if [ -f "$OUTPUT_DIR/ffmpeg" ]; then
             chmod +x "$OUTPUT_DIR/ffmpeg"
-            chmod +x "$OUTPUT_DIR/ffprobe"
-            echo "ffmpeg and ffprobe extracted to: $OUTPUT_DIR"
+            [ -f "$OUTPUT_DIR/ffprobe" ] && chmod +x "$OUTPUT_DIR/ffprobe"
+            echo "ffmpeg extracted to: $OUTPUT_DIR"
             rm -f "$FFMPEG_ARCHIVE"
         else
             echo "Failed to extract ffmpeg binaries"
