@@ -13,6 +13,7 @@ jobs:
   build:
     name: Build ${{ matrix.platform.target }}
     runs-on: ${{ matrix.platform.os }}
+    environment: APPLE_CERTIFICATE_BASE64
     strategy:
       fail-fast: false
       matrix:
