@@ -7,8 +7,23 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::ConfigError;
 
-static DEFAULT_PROJECT_DIRS: Lazy<Option<ProjectDirs>> =
-    Lazy::new(|| ProjectDirs::from("com", "space-downloader", "space-downloader"));
+static DEFAULT_PROJECT_DIRS: Lazy<Option<ProjectDirs>> = Lazy::new(|| {
+    #[cfg(target_os = "macos")]
+    {
+        // macOS: com.space-downloader.space-downloader
+        ProjectDirs::from("com", "space-downloader", "space-downloader")
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // Windows: space-downloader\space-downloader
+        ProjectDirs::from("", "space-downloader", "space-downloader")
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        // Linux: space-downloader
+        ProjectDirs::from("", "", "space-downloader")
+    }
+});
 
 pub const CONFIG_RELATIVE_PATH: &str = "space_downloader.toml";
 
@@ -135,14 +150,36 @@ impl Default for GeneralSettings {
 }
 
 fn default_download_dir() -> PathBuf {
-    // Get the directory where the executable is located
-    if let Ok(exe_path) = std::env::current_exe() {
-        if let Some(exe_dir) = exe_path.parent() {
-            return exe_dir.to_path_buf();
+    #[cfg(target_os = "macos")]
+    {
+        // macOS: Use ~/Downloads
+        if let Some(home) = dirs::home_dir() {
+            return home.join("Downloads");
         }
     }
-    
-    // Fallback to current directory if executable path cannot be determined
+
+    #[cfg(target_os = "windows")]
+    {
+        // Windows: Use executable directory
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                return exe_dir.to_path_buf();
+            }
+        }
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        // Linux: Use ~/Downloads or current directory
+        if let Some(home) = dirs::home_dir() {
+            let downloads = home.join("Downloads");
+            if downloads.exists() {
+                return downloads;
+            }
+        }
+    }
+
+    // Fallback to current directory
     PathBuf::from(".")
 }
 

@@ -85,13 +85,33 @@ External tools required (not bundled):
 - Error handling: Non-zero exit codes and stderr captured
 
 ### Configuration
-- Location: `~/.config/space-downloader/config.toml` (or platform-specific)
-- Settings: Output directory, audio format, retry count, concurrency limit
+Platform-specific configuration file locations:
+- **macOS**: `~/Library/Application Support/com.space-downloader.space-downloader/space_downloader.toml`
+- **Windows**: `%APPDATA%\space-downloader\space-downloader\space_downloader.toml`
+- **Linux**: `~/.config/space-downloader/space_downloader.toml`
+
+Settings: Output directory, audio format, retry count, concurrency limit
 - Can be modified via GUI settings screen (future feature)
 
 ### History Storage
-- SQLite database: `~/.local/share/space-downloader/history.db`
-- Tracks: URL, title, status, timestamps, file paths, error messages
+Platform-specific SQLite database locations:
+- **macOS**: `~/Library/Application Support/com.space-downloader.space-downloader/history.db`
+- **Windows**: `%APPDATA%\space-downloader\space-downloader\history.db`
+- **Linux**: `~/.local/share/space-downloader/history.db`
+
+Tracks: URL, title, status, timestamps, file paths, error messages
+
+### Logging
+Platform-specific log file locations:
+- **macOS**: `~/Library/Application Support/com.space-downloader.space-downloader/logs/`
+- **Windows**: `%APPDATA%\space-downloader\space-downloader\logs\`
+- **Linux**: `~/.local/share/space-downloader/logs/`
+
+### Default Download Directory
+Platform-specific default download locations:
+- **macOS**: `~/Downloads`
+- **Windows**: Executable directory
+- **Linux**: `~/Downloads` (if exists, otherwise current directory)
 
 ### Localization
 - Uses fluent for i18n

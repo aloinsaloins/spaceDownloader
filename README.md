@@ -125,6 +125,38 @@ cargo test --package space-downloader-core -- --ignored
 - 403 / 401 エラー: 認証が必要なスペースではクッキーが必要な場合があります。ブラウザから抽出したクッキーを `cookie_file` に設定してください。
 - 進捗が更新されない: `yt-dlp` のバージョンにより出力形式が異なる可能性があります。最新版への更新を検討してください。
 
+### GitHubでのリリース方法
+
+このプロジェクトはGitHub Actionsを使用して、Windows、macOS（Apple Silicon & Intel）用のバイナリを自動ビルドし、リリースとして配布できます。
+
+#### リリース手順
+
+1. **バージョンタグを作成**:
+   ```sh
+   git tag v1.0.4
+   git push origin v1.0.4
+   ```
+
+2. **GitHub Actionsが自動実行**:
+   - タグがプッシュされると、`.github/workflows/release.yml`が自動的に実行されます
+   - Windows、macOS（ARM64とIntel）用のバイナリがビルドされます
+   - `yt-dlp`と`ffmpeg`が自動的にダウンロードされ、バンドルされます
+   - すべてのファイルがZIPアーカイブにパッケージ化されます
+
+3. **リリースの確認**:
+   - GitHub上でリリースページに自動的に公開されます
+   - ユーザーは依存関係をインストールする必要なく、ZIPをダウンロードして解凍するだけで使用できます
+
+#### 含まれるファイル
+
+各ZIPファイルには以下が含まれます：
+- Space Downloader実行ファイル
+- yt-dlp（最新版）
+- ffmpeg（最新版）
+- ffprobe（最新版）
+
+**追加の依存関係は不要です！** すべての必要なツールがバンドルされています。
+
 ### ロードマップ
 - 設定画面と履歴ビューの GUI 実装
 - アプリ起動時の依存関係チェック UI
@@ -259,6 +291,38 @@ For a deeper dive into requirements and flows, check `docs/space_downloader_spec
 - `ffmpeg not found`: Install from official builds or your package manager and ensure PATH includes it.
 - 403 / 401 errors: Some spaces require authentication. Export cookies from your browser and point `cookie_file` to them.
 - Progress not updating: Certain `yt-dlp` versions format output differently—upgrade to the latest release if parsing fails.
+
+### Releasing on GitHub
+
+This project uses GitHub Actions to automatically build binaries for Windows, macOS (Apple Silicon & Intel), and distribute them as releases.
+
+#### Release Steps
+
+1. **Create a version tag**:
+   ```sh
+   git tag v1.0.4
+   git push origin v1.0.4
+   ```
+
+2. **GitHub Actions runs automatically**:
+   - When the tag is pushed, `.github/workflows/release.yml` automatically executes
+   - Builds binaries for Windows, macOS (ARM64 and Intel)
+   - Automatically downloads and bundles `yt-dlp` and `ffmpeg`
+   - Packages everything into ZIP archives
+
+3. **Check the release**:
+   - The release is automatically published on GitHub's release page
+   - Users can download and extract the ZIP without needing to install any dependencies
+
+#### What's Included
+
+Each ZIP file contains:
+- Space Downloader executable
+- yt-dlp (latest version)
+- ffmpeg (latest version)
+- ffprobe (latest version)
+
+**No additional dependencies required!** All necessary tools are bundled.
 
 ### Roadmap
 - GUI for settings and history browsing

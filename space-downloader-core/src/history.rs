@@ -3,6 +3,8 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
+use directories::ProjectDirs;
+use once_cell::sync::Lazy;
 use rusqlite::{params, Connection, Row};
 use uuid::Uuid;
 
@@ -10,7 +12,29 @@ use crate::config::{AudioFormat, ParseAudioFormatError};
 use crate::download::JobStatus;
 use crate::error::HistoryError;
 
-const DEFAULT_DB_PATH: &str = "history/history.db";
+static DEFAULT_DB_PATH: Lazy<PathBuf> = Lazy::new(|| {
+    #[cfg(target_os = "macos")]
+    {
+        // macOS: ~/Library/Application Support/com.space-downloader.space-downloader/history.db
+        ProjectDirs::from("com", "space-downloader", "space-downloader")
+            .map(|dirs| dirs.data_dir().join("history.db"))
+            .unwrap_or_else(|| PathBuf::from("history/history.db"))
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // Windows: %APPDATA%\space-downloader\space-downloader\history.db
+        ProjectDirs::from("", "space-downloader", "space-downloader")
+            .map(|dirs| dirs.data_dir().join("history.db"))
+            .unwrap_or_else(|| PathBuf::from("history/history.db"))
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        // Linux: ~/.local/share/space-downloader/history.db
+        ProjectDirs::from("", "", "space-downloader")
+            .map(|dirs| dirs.data_dir().join("history.db"))
+            .unwrap_or_else(|| PathBuf::from("history/history.db"))
+    }
+});
 
 #[derive(Clone)]
 pub struct HistoryRepository {
@@ -19,7 +43,7 @@ pub struct HistoryRepository {
 
 impl HistoryRepository {
     pub fn open(path: Option<PathBuf>) -> Result<Self, HistoryError> {
-        let resolved = path.unwrap_or_else(|| PathBuf::from(DEFAULT_DB_PATH));
+        let resolved = path.unwrap_or_else(|| DEFAULT_DB_PATH.clone());
         if let Some(parent) = resolved.parent() {
             fs::create_dir_all(parent).map_err(|source| HistoryError::Io {
                 path: parent.to_path_buf(),

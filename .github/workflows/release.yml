@@ -87,7 +87,7 @@ jobs:
           ./scripts/download-dependencies.sh bundle
 
       - name: Download dependencies (macOS)
-        if: matrix.platform.os == 'macos-latest'
+        if: matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13'
         run: |
           mkdir -p bundle
           cp target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }} bundle/

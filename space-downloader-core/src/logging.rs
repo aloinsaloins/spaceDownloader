@@ -11,9 +11,27 @@ use tracing_subscriber::{fmt, util::SubscriberInitExt, EnvFilter};
 use crate::config::{LogLevel, LogSettings};
 
 static DEFAULT_LOG_DIR: Lazy<PathBuf> = Lazy::new(|| {
-    ProjectDirs::from("com", "space-downloader", "space-downloader")
-        .map(|dirs| dirs.data_dir().join("logs"))
-        .unwrap_or_else(|| PathBuf::from("logs"))
+    #[cfg(target_os = "macos")]
+    {
+        // macOS: ~/Library/Application Support/com.space-downloader.space-downloader/logs
+        ProjectDirs::from("com", "space-downloader", "space-downloader")
+            .map(|dirs| dirs.data_dir().join("logs"))
+            .unwrap_or_else(|| PathBuf::from("logs"))
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // Windows: %APPDATA%\space-downloader\space-downloader\logs
+        ProjectDirs::from("", "space-downloader", "space-downloader")
+            .map(|dirs| dirs.data_dir().join("logs"))
+            .unwrap_or_else(|| PathBuf::from("logs"))
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        // Linux: ~/.local/share/space-downloader/logs
+        ProjectDirs::from("", "", "space-downloader")
+            .map(|dirs| dirs.data_dir().join("logs"))
+            .unwrap_or_else(|| PathBuf::from("logs"))
+    }
 });
 
 pub struct LogManager {
