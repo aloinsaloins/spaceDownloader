@@ -71,14 +71,18 @@ jobs:
         run: strip target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
 
       - name: Import Code-Signing Certificates (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && secrets.APPLE_CERTIFICATE_BASE64 != ''
+        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && env.APPLE_CERTIFICATE_BASE64 != ''
         uses: Apple-Actions/import-codesign-certs@v3
         with:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
 
       - name: Sign Binary (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && secrets.APPLE_CERTIFICATE_BASE64 != ''
+        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && env.APPLE_CERTIFICATE_BASE64 != ''
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
         run: |
           codesign --force --sign "Developer ID Application: ${{ secrets.APPLE_SIGNING_IDENTITY }}" \
             --options runtime \
@@ -115,7 +119,9 @@ jobs:
           ./scripts/download-dependencies.sh bundle
 
       - name: Sign bundled dependencies (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && secrets.APPLE_CERTIFICATE_BASE64 != ''
+        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && env.APPLE_CERTIFICATE_BASE64 != ''
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
         run: |
           # Sign yt-dlp, ffmpeg, ffprobe if present
           for binary in bundle/yt-dlp bundle/ffmpeg bundle/ffprobe; do
@@ -131,7 +137,9 @@ jobs:
           echo "All dependencies signed successfully"
 
       - name: Create ZIP for Notarization (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && secrets.APPLE_CERTIFICATE_BASE64 != ''
+        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && env.APPLE_CERTIFICATE_BASE64 != ''
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
         run: |
           cd bundle
           zip -r ../notarization.zip .
@@ -139,7 +147,9 @@ jobs:
           echo "Created ZIP for notarization: $(ls -lh notarization.zip)"
 
       - name: Notarize with Apple (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && secrets.APPLE_CERTIFICATE_BASE64 != ''
+        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && env.APPLE_CERTIFICATE_BASE64 != ''
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
         run: |
           echo "Submitting to Apple notarization service..."
           xcrun notarytool submit notarization.zip \
@@ -232,9 +242,8 @@ jobs:
             1. Download the appropriate ZIP for your Mac (ARM64 for M1/M2/M3, x64 for Intel)
             2. Extract all files to a folder
             3. Run `space-downloader-gui`
-            ${{ secrets.APPLE_CERTIFICATE_BASE64 != '' && '
-            **Note**: All macOS binaries are code-signed and notarized by Apple. No security warnings should appear.' || '
-            **Note**: On first run, you may need to right-click the app and select "Open" to bypass Gatekeeper security (binaries are not code-signed).' }}
+
+            **Note**: On first run, you may need to right-click the app and select "Open" to bypass Gatekeeper security.
 
             ### Changes
             See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
