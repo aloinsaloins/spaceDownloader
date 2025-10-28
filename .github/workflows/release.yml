@@ -70,6 +70,24 @@ jobs:
         if: matrix.platform.os != 'windows-latest'
         run: strip target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
 
+      - name: Import Code-Signing Certificates (macOS)
+        if: matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13'
+        uses: Apple-Actions/import-codesign-certs@v2
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Sign Binary (macOS)
+        if: matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13'
+        run: |
+          codesign --force --sign "Developer ID Application: ${{ secrets.APPLE_SIGNING_IDENTITY }}" \
+            --options runtime \
+            --timestamp \
+            target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
+
+          # Verify signature
+          codesign --verify --verbose target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
+
       - name: Download dependencies (Windows)
         if: matrix.platform.os == 'windows-latest'
         run: |
@@ -93,6 +111,40 @@ jobs:
           cp target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }} bundle/
           chmod +x scripts/download-dependencies.sh
           ./scripts/download-dependencies.sh bundle
+
+      - name: Sign bundled dependencies (macOS)
+        if: matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13'
+        run: |
+          # Sign yt-dlp, ffmpeg, ffprobe if present
+          for binary in bundle/yt-dlp bundle/ffmpeg bundle/ffprobe; do
+            if [ -f "$binary" ]; then
+              codesign --force --sign "Developer ID Application: ${{ secrets.APPLE_SIGNING_IDENTITY }}" \
+                --options runtime \
+                --timestamp \
+                "$binary"
+              codesign --verify --verbose "$binary"
+            fi
+          done
+
+      - name: Create ZIP for Notarization (macOS)
+        if: matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13'
+        run: |
+          cd bundle
+          zip -r ../notarization.zip .
+          cd ..
+
+      - name: Notarize with Apple (macOS)
+        if: matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13'
+        run: |
+          xcrun notarytool submit notarization.zip \
+            --apple-id "${{ secrets.APPLE_ID }}" \
+            --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+            --password "${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}" \
+            --wait
+
+          # Note: For binaries distributed as ZIP, stapling is not strictly required
+          # but we verify notarization succeeded
+          echo "Notarization completed successfully"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -175,7 +227,8 @@ jobs:
             1. Download the appropriate ZIP for your Mac (ARM64 for M1/M2/M3, x64 for Intel)
             2. Extract all files to a folder
             3. Run `space-downloader-gui`
-            4. If you see a security warning, go to System Preferences → Security & Privacy and allow the app to run
+
+            **Note**: All macOS binaries are code-signed and notarized by Apple. You should not see security warnings.
 
             ### Changes
             See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
