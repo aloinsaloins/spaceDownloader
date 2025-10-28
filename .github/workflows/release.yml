@@ -70,24 +70,6 @@ jobs:
         if: matrix.platform.os != 'windows-latest'
         run: strip target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
 
-      - name: Import Code-Signing Certificates (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && secrets.APPLE_CERTIFICATE_BASE64 != ''
-        uses: Apple-Actions/import-codesign-certs@v2
-        with:
-          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
-          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-
-      - name: Sign Binary (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && secrets.APPLE_CERTIFICATE_BASE64 != ''
-        run: |
-          codesign --force --sign "Developer ID Application: ${{ secrets.APPLE_SIGNING_IDENTITY }}" \
-            --options runtime \
-            --timestamp \
-            target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
-
-          # Verify signature
-          codesign --verify --verbose target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
-
       - name: Download dependencies (Windows)
         if: matrix.platform.os == 'windows-latest'
         run: |
@@ -111,40 +93,6 @@ jobs:
           cp target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }} bundle/
           chmod +x scripts/download-dependencies.sh
           ./scripts/download-dependencies.sh bundle
-
-      - name: Sign bundled dependencies (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && secrets.APPLE_CERTIFICATE_BASE64 != ''
-        run: |
-          # Sign yt-dlp, ffmpeg, ffprobe if present
-          for binary in bundle/yt-dlp bundle/ffmpeg bundle/ffprobe; do
-            if [ -f "$binary" ]; then
-              codesign --force --sign "Developer ID Application: ${{ secrets.APPLE_SIGNING_IDENTITY }}" \
-                --options runtime \
-                --timestamp \
-                "$binary"
-              codesign --verify --verbose "$binary"
-            fi
-          done
-
-      - name: Create ZIP for Notarization (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && secrets.APPLE_CERTIFICATE_BASE64 != ''
-        run: |
-          cd bundle
-          zip -r ../notarization.zip .
-          cd ..
-
-      - name: Notarize with Apple (macOS)
-        if: (matrix.platform.os == 'macos-latest' || matrix.platform.os == 'macos-13') && secrets.APPLE_CERTIFICATE_BASE64 != ''
-        run: |
-          xcrun notarytool submit notarization.zip \
-            --apple-id "${{ secrets.APPLE_ID }}" \
-            --team-id "${{ secrets.APPLE_TEAM_ID }}" \
-            --password "${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}" \
-            --wait
-
-          # Note: For binaries distributed as ZIP, stapling is not strictly required
-          # but we verify notarization succeeded
-          echo "Notarization completed successfully"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
