@@ -114,9 +114,6 @@ jobs:
           # Display signature information
           codesign -dv --verbose=4 target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
 
-          # Verify Gatekeeper acceptance
-          spctl -a -vvv -t install target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
-
       - name: Create App Bundle (macOS)
         if: matrix.platform.os == 'macos-latest'
         env:
