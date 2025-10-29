@@ -69,38 +69,87 @@ jobs:
 
       - name: Import Code-Signing Certificates (macOS)
         if: matrix.platform.os == 'macos-latest'
-        uses: Apple-Actions/import-codesign-certs@v3
-        with:
-          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
-          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          # Create variables
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          # Import certificate from secrets
+          echo -n "$APPLE_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+
+          # Create temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate to keychain
+          security import $CERTIFICATE_PATH -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # Enable codesigning from keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Verify certificate is available
+          security find-identity -v -p codesigning $KEYCHAIN_PATH
 
       - name: Sign Binary (macOS)
         if: matrix.platform.os == 'macos-latest'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
-          codesign --force --sign "Developer ID Application: ${{ secrets.APPLE_SIGNING_IDENTITY }}" \
+          # Sign the main binary
+          codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
             --options runtime \
             --timestamp \
             --deep \
             target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
 
-          codesign --verify --verbose target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
+          # Verify signature
+          codesign --verify --verbose=4 target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
+
+          # Display signature information
+          codesign -dv --verbose=4 target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
+
+          # Verify Gatekeeper acceptance
+          spctl -a -vvv -t install target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
 
       - name: Bundle dependencies (macOS)
         if: matrix.platform.os == 'macos-latest'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
           mkdir -p bundle
           cp target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }} bundle/
           chmod +x scripts/download-dependencies.sh
           ./scripts/download-dependencies.sh bundle
 
+          # Sign all bundled dependencies
           for binary in bundle/yt-dlp bundle/ffmpeg bundle/ffprobe; do
             if [ -f "$binary" ]; then
-              codesign --force --sign "Developer ID Application: ${{ secrets.APPLE_SIGNING_IDENTITY }}" \
+              echo "Signing $binary..."
+              codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
                 --options runtime \
                 --timestamp "$binary"
-              codesign --verify --verbose "$binary"
+
+              # Verify each signed binary
+              codesign --verify --verbose=4 "$binary"
+              codesign -dv --verbose=4 "$binary"
+
+              echo "✅ Successfully signed and verified $binary"
             fi
           done
+
+      - name: Bundle dependencies (Windows)
+        if: matrix.platform.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path bundle | Out-Null
+          Copy-Item "target\${{ matrix.platform.target }}\release\${{ matrix.platform.artifact_name }}" "bundle\${{ matrix.platform.artifact_name }}" -Force
+          ./scripts/download-dependencies.ps1 -OutputDir bundle
 
       - name: Create ZIP for Notarization (macOS)
         if: matrix.platform.os == 'macos-latest'
@@ -113,13 +162,27 @@ jobs:
         if: matrix.platform.os == 'macos-latest'
         env:
           APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
         run: |
-          echo "$APPLE_API_PRIVATE_KEY" | base64 --decode > AuthKey.p8
+          # Create secure temporary file for API key
+          API_KEY_PATH=$RUNNER_TEMP/AuthKey_$APPLE_API_KEY_ID.p8
+
+          # Decode and save API key
+          echo "$APPLE_API_PRIVATE_KEY" | base64 --decode > "$API_KEY_PATH"
+          chmod 600 "$API_KEY_PATH"
+
+          # Submit for notarization
+          echo "Submitting for notarization..."
           xcrun notarytool submit notarization.zip \
-            --key AuthKey.p8 \
-            --key-id "${{ secrets.APPLE_API_KEY_ID }}" \
-            --issuer "${{ secrets.APPLE_API_ISSUER_ID }}" \
-            --wait
+            --key "$API_KEY_PATH" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER_ID" \
+            --wait \
+            --timeout 30m
+
+          # Clean up API key
+          rm -f "$API_KEY_PATH"
 
           echo "✅ Notarization completed successfully"
 
@@ -130,6 +193,20 @@ jobs:
           xcrun stapler staple bundle/space-downloader-gui
           xcrun stapler validate bundle/space-downloader-gui
           echo "Note: Stapling may fail for non-app bundles, but notarization is complete"
+
+      - name: Clean up keychain and certificates (macOS)
+        if: always() && matrix.platform.os == 'macos-latest'
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+
+          # Delete keychain
+          security delete-keychain $KEYCHAIN_PATH || true
+
+          # Remove certificate file
+          rm -f $CERTIFICATE_PATH || true
+
+          echo "✅ Cleaned up keychain and certificates"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
