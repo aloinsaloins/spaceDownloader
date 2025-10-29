@@ -46,3 +46,6 @@ TestResults/
 # Downloaded dependencies
 deps/
 test-deps/
+
+# Test App Bundles
+*.app/
