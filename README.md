@@ -48,21 +48,25 @@ brew install yt-dlp ffmpeg
 #### バイナリリリース（推奨）
 [GitHub Releases](https://github.com/aloinsaloins/spaceDownloader/releases) から最新版をダウンロードできます:
 
-- **Windows (x64)**: `space-downloader-windows-x64.zip`
-- **macOS (Apple Silicon - M1/M2/M3/M4)**: `space-downloader-macos-arm64.zip`
-
-各ZIPファイルには、実行ファイルと必要な依存関係（yt-dlp、ffmpeg）が含まれています。追加のインストールは不要です。
+- **Windows (x64)**: `space-downloader-windows-x64.zip` - yt-dlpとffmpegを同梱
+- **macOS (Apple Silicon - M1/M2/M3/M4)**: `space-downloader-macos-arm64.dmg`
 
 > **注**: Intel Mac向けのビルドは提供していません。Apple Siliconバイナリは、Rosetta 2経由でIntel Macでも動作します。
 
 #### macOS での実行方法
+
+**重要**: macOS版を使用する前に、Homebrewで依存関係をインストールしてください：
+
+```sh
+brew install yt-dlp ffmpeg
+```
+
 バイナリはAppleによって署名・公証されているため、通常は警告なく実行できます。
 
-もし問題が発生した場合、ターミナルから:
-```sh
-xattr -d com.apple.quarantine space-downloader-gui
-./space-downloader-gui
-```
+インストール手順：
+1. DMGファイルを開く
+2. "Space Downloader.app"をApplicationsフォルダにドラッグ
+3. Applicationsフォルダから起動
 
 ### 開発者向けセットアップ
 ```sh
@@ -251,21 +255,25 @@ This avoids code signing issues and ensures you get the latest version of yt-dlp
 #### Binary Releases (Recommended)
 Download the latest version from [GitHub Releases](https://github.com/aloinsaloins/spaceDownloader/releases):
 
-- **Windows (x64)**: `space-downloader-windows-x64.zip`
-- **macOS (Apple Silicon - M1/M2/M3/M4)**: `space-downloader-macos-arm64.zip`
-
-Each ZIP file includes the executable and all required dependencies (yt-dlp, ffmpeg). No additional installation needed.
+- **Windows (x64)**: `space-downloader-windows-x64.zip` - Includes yt-dlp and ffmpeg
+- **macOS (Apple Silicon - M1/M2/M3/M4)**: `space-downloader-macos-arm64.dmg`
 
 > **Note**: Intel Mac builds are not provided. Apple Silicon binaries work on Intel Macs via Rosetta 2.
 
-#### macOS Security Notice
+#### macOS Installation
+
+**Important**: Before using the macOS version, install dependencies via Homebrew:
+
+```sh
+brew install yt-dlp ffmpeg
+```
+
 Binaries are code-signed and notarized by Apple, so they should run without security warnings.
 
-If you encounter issues, from Terminal:
-```sh
-xattr -d com.apple.quarantine space-downloader-gui
-./space-downloader-gui
-```
+Installation steps:
+1. Open the DMG file
+2. Drag "Space Downloader.app" to the Applications folder
+3. Launch from Applications
 
 ### Developer Setup
 ```sh

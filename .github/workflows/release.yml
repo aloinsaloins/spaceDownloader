@@ -127,9 +127,8 @@ jobs:
           # Copy main binary
           cp target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }} "$APP_NAME/Contents/MacOS/"
 
-          # Download and copy dependencies
-          chmod +x scripts/download-dependencies.sh
-          ./scripts/download-dependencies.sh "$APP_NAME/Contents/MacOS"
+          # Note: yt-dlp and ffmpeg are NOT bundled
+          # Users must install via Homebrew: brew install yt-dlp ffmpeg
 
           # Create Info.plist
           cat > "$APP_NAME/Contents/Info.plist" <<EOF
