@@ -68,8 +68,6 @@ enum Message {
     CancelDownload(Uuid),
     OpenFolder(PathBuf),
     Tick,
-    YtDlpDownloadProgress(u64, u64),
-    YtDlpDownloadComplete(Result<PathBuf, String>),
     InitializationComplete(Result<Arc<AppInit>, String>),
 }
 
@@ -339,23 +337,10 @@ impl SpaceDownloaderApp {
             SpaceDownloaderApp::Failed(_) => Task::none(),
             SpaceDownloaderApp::Ready(state) => state.update(message),
             SpaceDownloaderApp::DownloadingYtDlp {
-                downloaded,
-                total,
+                downloaded: _,
+                total: _,
                 localizer: _,
             } => match message {
-                Message::YtDlpDownloadProgress(d, t) => {
-                    *downloaded = d;
-                    *total = t;
-                    Task::none()
-                }
-                Message::YtDlpDownloadComplete(Ok(_)) => {
-                    // Re-initialize after download complete
-                    Task::none()
-                }
-                Message::YtDlpDownloadComplete(Err(error)) => {
-                    *self = SpaceDownloaderApp::Failed(error);
-                    Task::none()
-                }
                 Message::InitializationComplete(result) => match result {
                     Ok(init) => {
                         let init = Arc::try_unwrap(init).unwrap_or_else(|arc| (*arc).clone());
@@ -509,10 +494,8 @@ impl AppState {
                 }
                 Task::none()
             }
-            Message::YtDlpDownloadProgress(_, _)
-            | Message::YtDlpDownloadComplete(_)
-            | Message::InitializationComplete(_) => {
-                // These messages are handled in the top-level update
+            Message::InitializationComplete(_) => {
+                // This message is handled in the top-level update
                 Task::none()
             }
         }
@@ -573,20 +556,17 @@ impl AppState {
 }
 
 async fn async_initialize(config: Config) -> Result<AppInit, String> {
-    use space_downloader_core::dependency::{check_dependencies, download_ytdlp};
+    // Check if yt-dlp is available (Homebrew installation expected)
+    use space_downloader_core::dependency::check_dependencies;
 
-    // Check if yt-dlp is available
     let deps = check_dependencies(&config.advanced)
         .await
         .map_err(|err| format!("Failed to check dependencies: {}", err))?;
 
-    // Download yt-dlp if not available
     if !deps.yt_dlp.available {
-        tracing::info!("yt-dlp not found, downloading...");
-        download_ytdlp(None)
-            .await
-            .map_err(|err| format!("Failed to download yt-dlp: {}", err))?;
-        tracing::info!("yt-dlp download completed");
+        return Err(
+            "yt-dlp not found. Please install it using Homebrew: brew install yt-dlp".to_string()
+        );
     }
 
     // Continue with normal initialization

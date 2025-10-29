@@ -74,8 +74,10 @@ cargo clippy -- -D warnings
 
 ### Dependencies
 External tools required (not bundled):
-- `yt-dlp` - For downloading media
-- `ffmpeg` - For audio conversion
+- `yt-dlp` - For downloading media (macOS: install via Homebrew: `brew install yt-dlp`)
+- `ffmpeg` - For audio conversion (macOS: install via Homebrew: `brew install ffmpeg`)
+
+**Important for macOS**: The application requires Homebrew-installed `yt-dlp` and will not automatically download binaries. This avoids code signing issues with bundled binaries.
 
 ## Key Implementation Details
 
