@@ -119,7 +119,8 @@ async fn check_binary(binary: &str, args: &[&str]) -> Result<DependencyCheck, De
 
 /// Resolve binary path with the following priority:
 /// 1. If candidate is an absolute/relative path, check if it exists
-/// 2. Check in PATH (for Homebrew-installed binaries)
+/// 2. Check in common Homebrew paths (for macOS GUI apps where PATH may not include Homebrew)
+/// 3. Check in PATH
 pub fn resolve_binary(candidate: &Path) -> Option<PathBuf> {
     // If candidate is a multi-component path, treat it as absolute/relative path
     if candidate.components().count() > 1 {
@@ -130,7 +131,25 @@ pub fn resolve_binary(candidate: &Path) -> Option<PathBuf> {
         }
     }
 
-    // Check in PATH (for Homebrew-installed binaries)
+    let binary_name = candidate.file_name()?;
+
+    // Priority 1: Check common Homebrew installation paths (for macOS GUI apps)
+    #[cfg(target_os = "macos")]
+    {
+        let homebrew_paths = [
+            "/opt/homebrew/bin",  // Apple Silicon
+            "/usr/local/bin",     // Intel
+        ];
+
+        for homebrew_dir in &homebrew_paths {
+            let homebrew_path = PathBuf::from(homebrew_dir).join(binary_name);
+            if homebrew_path.exists() {
+                return Some(homebrew_path);
+            }
+        }
+    }
+
+    // Priority 2: Check in PATH (works in terminal and some environments)
     which::which(candidate).ok()
 }
 
