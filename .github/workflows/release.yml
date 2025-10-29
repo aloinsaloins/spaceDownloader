@@ -117,31 +117,76 @@ jobs:
           # Verify Gatekeeper acceptance
           spctl -a -vvv -t install target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }}
 
-      - name: Bundle dependencies (macOS)
+      - name: Create App Bundle (macOS)
         if: matrix.platform.os == 'macos-latest'
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
-          mkdir -p bundle
-          cp target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }} bundle/
-          chmod +x scripts/download-dependencies.sh
-          ./scripts/download-dependencies.sh bundle
+          # Create App Bundle structure
+          APP_NAME="Space Downloader.app"
+          mkdir -p "$APP_NAME/Contents/MacOS"
+          mkdir -p "$APP_NAME/Contents/Resources"
 
-          # Sign all bundled dependencies
-          for binary in bundle/yt-dlp bundle/ffmpeg bundle/ffprobe; do
+          # Copy main binary
+          cp target/${{ matrix.platform.target }}/release/${{ matrix.platform.artifact_name }} "$APP_NAME/Contents/MacOS/"
+
+          # Download and copy dependencies
+          chmod +x scripts/download-dependencies.sh
+          ./scripts/download-dependencies.sh "$APP_NAME/Contents/MacOS"
+
+          # Create Info.plist
+          cat > "$APP_NAME/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>space-downloader-gui</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.space-downloader.app</string>
+              <key>CFBundleName</key>
+              <string>Space Downloader</string>
+              <key>CFBundleVersion</key>
+              <string>1.0.0</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0.0</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>11.0</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
+          # Sign all binaries in the app bundle
+          for binary in "$APP_NAME/Contents/MacOS/yt-dlp" "$APP_NAME/Contents/MacOS/ffmpeg" "$APP_NAME/Contents/MacOS/ffprobe"; do
             if [ -f "$binary" ]; then
               echo "Signing $binary..."
               codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
                 --options runtime \
                 --timestamp "$binary"
-
-              # Verify each signed binary
               codesign --verify --verbose=4 "$binary"
-              codesign -dv --verbose=4 "$binary"
-
-              echo "✅ Successfully signed and verified $binary"
             fi
           done
+
+          # Sign main executable
+          codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
+            --options runtime \
+            --timestamp "$APP_NAME/Contents/MacOS/space-downloader-gui"
+
+          # Sign the entire app bundle
+          codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
+            --options runtime \
+            --timestamp \
+            --deep "$APP_NAME"
+
+          # Verify app bundle signature
+          codesign --verify --deep --verbose=4 "$APP_NAME"
+          codesign -dv --verbose=4 "$APP_NAME"
+
+          echo "✅ App Bundle created and signed"
 
       - name: Bundle dependencies (Windows)
         if: matrix.platform.os == 'windows-latest'
@@ -154,9 +199,8 @@ jobs:
       - name: Create ZIP for Notarization (macOS)
         if: matrix.platform.os == 'macos-latest'
         run: |
-          cd bundle
-          zip -r ../notarization.zip .
-          cd ..
+          # Create ZIP with App Bundle
+          zip -r notarization.zip "Space Downloader.app"
 
       - name: Notarize with Apple API Key (macOS)
         if: matrix.platform.os == 'macos-latest'
@@ -189,9 +233,10 @@ jobs:
       - name: Create DMG for distribution (macOS)
         if: matrix.platform.os == 'macos-latest'
         run: |
-          # Create a temporary DMG directory
+          # Create a temporary DMG directory with Applications symlink
           mkdir -p dmg-staging
-          cp -r bundle/* dmg-staging/
+          cp -R "Space Downloader.app" dmg-staging/
+          ln -s /Applications dmg-staging/Applications
 
           # Create DMG
           hdiutil create -volname "Space Downloader" -srcfolder dmg-staging -ov -format UDZO space-downloader.dmg
@@ -237,8 +282,9 @@ jobs:
           xcrun stapler staple space-downloader.dmg
           xcrun stapler validate space-downloader.dmg
 
-          # Move DMG to bundle directory for upload
-          mv space-downloader.dmg bundle/
+          # Prepare for upload
+          mkdir -p upload
+          mv space-downloader.dmg upload/
 
           echo "✅ DMG stapled and ready for distribution"
 
@@ -260,7 +306,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform.asset_name }}
-          path: bundle/
+          path: ${{ matrix.platform.os == 'macos-latest' && 'upload/' || 'bundle/' }}
 
   release:
     name: Create Release
@@ -277,20 +323,18 @@ jobs:
         with:
           path: ./artifacts
 
-      - name: Create ZIP archives
+      - name: Prepare release assets
         run: |
           cd artifacts
           for dir in */; do
             dirname="${dir%/}"
             cd "$dirname"
             if [ -f space-downloader-gui.exe ]; then
+              # Windows: create ZIP
               zip -r "../${dirname}.zip" *
-            else
-              chmod +x space-downloader-gui 2>/dev/null || true
-              chmod +x yt-dlp 2>/dev/null || true
-              chmod +x ffmpeg 2>/dev/null || true
-              chmod +x ffprobe 2>/dev/null || true
-              zip -r "../${dirname}.zip" *
+            elif [ -f space-downloader.dmg ]; then
+              # macOS: DMG is already ready, just move it
+              mv space-downloader.dmg "../${dirname}.dmg"
             fi
             cd ..
           done
@@ -307,22 +351,26 @@ jobs:
           prerelease: false
           files: |
             artifacts/*.zip
+            artifacts/*.dmg
           body: |
             ## Space Downloader ${{ steps.get_version.outputs.VERSION }}
 
             ### Downloads
             - **Windows (x64)**: `space-downloader-windows-x64.zip`
-            - **macOS (Apple Silicon - M1/M2/M3/M4)**: `space-downloader-macos-arm64.zip`
+            - **macOS (Apple Silicon - M1/M2/M3/M4)**: `space-downloader-macos-arm64.dmg` 🆕
 
             ### What's Included
-            - Space Downloader executable
+            - Space Downloader App Bundle (.app)
             - yt-dlp (latest)
             - ffmpeg / ffprobe (latest)
             - Fully notarized & codesigned for macOS
 
             ### Installation
-            - Windows: extract & run `.exe`
-            - macOS: extract & run binary（Gatekeeper 警告なし🚀）
+            - **Windows**: Extract ZIP and run `.exe`
+            - **macOS**:
+              1. Open DMG file
+              2. Drag "Space Downloader.app" to Applications folder
+              3. Launch from Applications - No Gatekeeper warnings! 🚀
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
