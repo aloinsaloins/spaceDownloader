@@ -32,9 +32,16 @@ spaceDownloader/
 
 ### 必要環境
 - Rust 1.78 以上（Edition 2021）
-- `yt-dlp`（PATH に配置、もしくは設定でフルパス指定）
-- `ffmpeg`（音声変換に使用）
+- `yt-dlp`（macOS では Homebrew 経由でのインストールを推奨: `brew install yt-dlp`）
+- `ffmpeg`（音声変換に使用、macOS: `brew install ffmpeg`）
 - OS: Windows 10 以降 / macOS 13 Ventura 以降 / Linux x86_64
+
+#### macOS ユーザーへの注意
+macOS では、Homebrew を使って yt-dlp をインストールすることを強く推奨します：
+```sh
+brew install yt-dlp ffmpeg
+```
+これにより、コード署名の問題を回避し、最新版の yt-dlp を安全に使用できます。
 
 ### ダウンロード
 
@@ -229,6 +236,15 @@ spaceDownloader/
 ### Requirements
 - OS: Windows 10+, macOS 13 Ventura+, or Linux x86_64
 - For development: Rust 1.78 or newer (Edition 2021)
+- `yt-dlp` (macOS users: install via Homebrew recommended: `brew install yt-dlp`)
+- `ffmpeg` (for audio conversion, macOS: `brew install ffmpeg`)
+
+#### macOS Users Note
+For macOS users, we strongly recommend installing yt-dlp via Homebrew:
+```sh
+brew install yt-dlp ffmpeg
+```
+This avoids code signing issues and ensures you get the latest version of yt-dlp.
 
 ### Download
 

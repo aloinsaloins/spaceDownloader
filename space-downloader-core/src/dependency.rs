@@ -312,6 +312,36 @@ pub async fn download_ytdlp(
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
+
+        // On macOS, add Python3 shebang if it doesn't exist (for Python script version)
+        #[cfg(target_os = "macos")]
+        {
+            let content = tokio::fs::read(&dest_path)
+                .await
+                .map_err(|e| DependencyError::SaveFailed {
+                    binary: "yt-dlp".to_string(),
+                    path: dest_path.clone(),
+                    source: e,
+                })?;
+
+            // Check if shebang exists
+            if content.len() < 2 || &content[0..2] != b"#!" {
+                // Prepend Python3 shebang
+                let shebang = b"#!/usr/bin/env python3\n";
+                let mut new_content = Vec::with_capacity(shebang.len() + content.len());
+                new_content.extend_from_slice(shebang);
+                new_content.extend_from_slice(&content);
+
+                tokio::fs::write(&dest_path, new_content)
+                    .await
+                    .map_err(|e| DependencyError::SaveFailed {
+                        binary: "yt-dlp".to_string(),
+                        path: dest_path.clone(),
+                        source: e,
+                    })?;
+            }
+        }
+
         let mut perms = tokio::fs::metadata(&dest_path)
             .await
             .map_err(|e| DependencyError::ChmodFailed {
@@ -336,14 +366,12 @@ pub async fn download_ytdlp(
 }
 
 /// Get the download URL for yt-dlp based on platform
+/// On macOS, we download the Python script version to avoid code signing issues
 fn get_ytdlp_download_url() -> &'static str {
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    #[cfg(target_os = "macos")]
     {
-        "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
-    }
-    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    {
-        "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
+        // Use Python script version on macOS to avoid code signing issues with PyInstaller binaries
+        "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
     }
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     {
@@ -358,7 +386,7 @@ fn get_ytdlp_download_url() -> &'static str {
         "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
     }
     #[cfg(not(any(
-        all(target_os = "macos", any(target_arch = "aarch64", target_arch = "x86_64")),
+        target_os = "macos",
         all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64")),
         all(target_os = "windows", target_arch = "x86_64")
     )))]
