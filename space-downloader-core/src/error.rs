@@ -31,6 +31,26 @@ pub enum DependencyError {
         #[source]
         source: std::io::Error,
     },
+    #[error("failed to download {binary}: {source}")]
+    Download {
+        binary: String,
+        #[source]
+        source: reqwest::Error,
+    },
+    #[error("failed to save {binary} to {path:?}: {source}")]
+    SaveFailed {
+        binary: String,
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("failed to make {binary} executable at {path:?}: {source}")]
+    ChmodFailed {
+        binary: String,
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
 }
 
 #[derive(Debug, Error)]

@@ -1,6 +1,6 @@
 [package]
 name = "space-downloader-core"
-version = "1.0.3"
+version = "1.1.0"
 edition = "2021"
 license = "MIT"
 authors = ["Space Downloader Contributors"]
@@ -27,6 +27,8 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 uuid = { version = "1.10", features = ["v4", "serde", "fast-rng"] }
 url = "2.5"
 which = "4.4"
+reqwest = { version = "0.12", features = ["stream"] }
+futures-util = "0.3"
 
 [dev-dependencies]
 tempfile = "3.10"

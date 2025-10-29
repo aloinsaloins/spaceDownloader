@@ -42,6 +42,11 @@ fn main() -> iced::Result {
 enum SpaceDownloaderApp {
     Ready(Box<AppState>),
     Failed(String),
+    DownloadingYtDlp {
+        downloaded: u64,
+        total: u64,
+        localizer: Localizer,
+    },
 }
 
 struct AppState {
@@ -63,6 +68,9 @@ enum Message {
     CancelDownload(Uuid),
     OpenFolder(PathBuf),
     Tick,
+    YtDlpDownloadProgress(u64, u64),
+    YtDlpDownloadComplete(Result<PathBuf, String>),
+    InitializationComplete(Result<Arc<AppInit>, String>),
 }
 
 type SharedJobResult = Result<SharedJobHandle, Arc<SpaceDownloaderError>>;
@@ -269,25 +277,60 @@ impl JobTracker {
 struct AppInit {
     downloader: Arc<DownloaderService>,
     config: Config,
-    localizer: Localizer,
     log_manager: Option<LogManager>,
+}
+
+impl Clone for AppInit {
+    fn clone(&self) -> Self {
+        Self {
+            downloader: self.downloader.clone(),
+            config: self.config.clone(),
+            log_manager: None, // LogManager is not cloneable, so we set it to None
+        }
+    }
+}
+
+impl std::fmt::Debug for AppInit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AppInit")
+            .field("config", &self.config)
+            .finish()
+    }
 }
 
 impl SpaceDownloaderApp {
     fn initialize() -> (Self, Task<Message>) {
-        match initialize_app() {
-            Ok(init) => (
-                SpaceDownloaderApp::Ready(Box::new(AppState::from(init))),
-                Task::none(),
-            ),
-            Err(error) => (SpaceDownloaderApp::Failed(error), Task::none()),
-        }
+        let (config, _) = match Config::load_or_default(None) {
+            Ok(cfg) => cfg,
+            Err(err) => {
+                return (
+                    SpaceDownloaderApp::Failed(format!("Failed to load config: {}", err)),
+                    Task::none(),
+                )
+            }
+        };
+
+        let localizer = Localizer::new(&config.general.language);
+
+        (
+            SpaceDownloaderApp::DownloadingYtDlp {
+                downloaded: 0,
+                total: 0,
+                localizer,
+            },
+            Task::perform(async_initialize(config), |result| {
+                Message::InitializationComplete(result.map(Arc::new))
+            }),
+        )
     }
 
     fn title(&self) -> String {
         match self {
             SpaceDownloaderApp::Failed(_) => "Space Downloader".into(),
             SpaceDownloaderApp::Ready(state) => state.localizer.text("app-title"),
+            SpaceDownloaderApp::DownloadingYtDlp { localizer, .. } => {
+                localizer.text("app-title")
+            }
         }
     }
 
@@ -295,6 +338,37 @@ impl SpaceDownloaderApp {
         match self {
             SpaceDownloaderApp::Failed(_) => Task::none(),
             SpaceDownloaderApp::Ready(state) => state.update(message),
+            SpaceDownloaderApp::DownloadingYtDlp {
+                downloaded,
+                total,
+                localizer: _,
+            } => match message {
+                Message::YtDlpDownloadProgress(d, t) => {
+                    *downloaded = d;
+                    *total = t;
+                    Task::none()
+                }
+                Message::YtDlpDownloadComplete(Ok(_)) => {
+                    // Re-initialize after download complete
+                    Task::none()
+                }
+                Message::YtDlpDownloadComplete(Err(error)) => {
+                    *self = SpaceDownloaderApp::Failed(error);
+                    Task::none()
+                }
+                Message::InitializationComplete(result) => match result {
+                    Ok(init) => {
+                        let init = Arc::try_unwrap(init).unwrap_or_else(|arc| (*arc).clone());
+                        *self = SpaceDownloaderApp::Ready(Box::new(AppState::from(init)));
+                        Task::none()
+                    }
+                    Err(error) => {
+                        *self = SpaceDownloaderApp::Failed(error);
+                        Task::none()
+                    }
+                }
+                _ => Task::none(),
+            },
         }
     }
 
@@ -307,6 +381,42 @@ impl SpaceDownloaderApp {
                 .align_y(Vertical::Center)
                 .into(),
             SpaceDownloaderApp::Ready(state) => state.view(),
+            SpaceDownloaderApp::DownloadingYtDlp {
+                downloaded,
+                total,
+                localizer: _,
+            } => {
+                let progress = if *total > 0 {
+                    *downloaded as f32 / *total as f32
+                } else {
+                    0.0
+                };
+
+                let size_text = if *total > 0 {
+                    format!(
+                        "{:.1} MB / {:.1} MB",
+                        *downloaded as f64 / 1024.0 / 1024.0,
+                        *total as f64 / 1024.0 / 1024.0
+                    )
+                } else {
+                    "Initializing...".to_string()
+                };
+
+                Container::new(
+                    Column::new()
+                        .spacing(16)
+                        .align_x(Horizontal::Center)
+                        .push(Text::new("Downloading yt-dlp...").size(24))
+                        .push(ProgressBar::new(0.0..=1.0, progress))
+                        .push(Text::new(size_text)),
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .align_x(Horizontal::Center)
+                .align_y(Vertical::Center)
+                .padding(48)
+                .into()
+            }
         }
     }
 
@@ -316,6 +426,7 @@ impl SpaceDownloaderApp {
                 time::every(Duration::from_millis(500)).map(|_| Message::Tick)
             }
             SpaceDownloaderApp::Failed(_) => Subscription::none(),
+            SpaceDownloaderApp::DownloadingYtDlp { .. } => Subscription::none(),
         }
     }
 
@@ -327,16 +438,18 @@ impl SpaceDownloaderApp {
                 ThemePreference::System => Theme::default(),
             },
             SpaceDownloaderApp::Failed(_) => Theme::default(),
+            SpaceDownloaderApp::DownloadingYtDlp { .. } => Theme::default(),
         }
     }
 }
 
 impl AppState {
     fn from(init: AppInit) -> Self {
+        let localizer = Localizer::new(&init.config.general.language);
         Self {
             downloader: init.downloader,
             config: init.config,
-            localizer: init.localizer,
+            localizer,
             _log_manager: init.log_manager,
             url_input: String::new(),
             url_error: None,
@@ -396,6 +509,12 @@ impl AppState {
                 }
                 Task::none()
             }
+            Message::YtDlpDownloadProgress(_, _)
+            | Message::YtDlpDownloadComplete(_)
+            | Message::InitializationComplete(_) => {
+                // These messages are handled in the top-level update
+                Task::none()
+            }
         }
     }
 
@@ -453,17 +572,31 @@ impl AppState {
     }
 }
 
-fn initialize_app() -> Result<AppInit, String> {
-    let (config, _) = Config::load_or_default(None).map_err(|err| err.to_string())?;
+async fn async_initialize(config: Config) -> Result<AppInit, String> {
+    use space_downloader_core::dependency::{check_dependencies, download_ytdlp};
+
+    // Check if yt-dlp is available
+    let deps = check_dependencies(&config.advanced)
+        .await
+        .map_err(|err| format!("Failed to check dependencies: {}", err))?;
+
+    // Download yt-dlp if not available
+    if !deps.yt_dlp.available {
+        tracing::info!("yt-dlp not found, downloading...");
+        download_ytdlp(None)
+            .await
+            .map_err(|err| format!("Failed to download yt-dlp: {}", err))?;
+        tracing::info!("yt-dlp download completed");
+    }
+
+    // Continue with normal initialization
     let history = HistoryRepository::open(None).map_err(|err| err.to_string())?;
     let downloader = Arc::new(DownloaderService::new(config.clone(), history));
-    let localizer = Localizer::new(&config.general.language);
     let log_manager = initialize_logger(&config.logging).map_err(|err| err.to_string())?;
 
     Ok(AppInit {
         downloader,
         config,
-        localizer,
         log_manager,
     })
 }
