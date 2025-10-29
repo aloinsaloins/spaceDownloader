@@ -522,6 +522,20 @@ fn build_command(job: &JobRuntime) -> Command {
 
     let mut command = Command::new(&yt_dlp_path);
 
+    // Ensure yt-dlp can find ffmpeg by adding common Homebrew paths to PATH
+    // This is necessary for macOS GUI apps where Homebrew paths are not in PATH
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(current_path) = std::env::var("PATH") {
+            let homebrew_paths = "/opt/homebrew/bin:/usr/local/bin";
+            let new_path = format!("{}:{}", homebrew_paths, current_path);
+            command.env("PATH", new_path);
+        } else {
+            // If PATH is not set, use default paths including Homebrew
+            command.env("PATH", "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin");
+        }
+    }
+
     // Hide command window on Windows
     #[cfg(target_os = "windows")]
     {
