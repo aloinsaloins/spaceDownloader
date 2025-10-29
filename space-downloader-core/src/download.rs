@@ -17,6 +17,7 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::config::{AdvancedSettings, AudioFormat, Config, DownloadSettings};
+use crate::dependency::resolve_binary;
 use crate::error::{DownloadError, HistoryError};
 use crate::history::HistoryRepository;
 
@@ -512,7 +513,14 @@ async fn finalize_history(
 }
 
 fn build_command(job: &JobRuntime) -> Command {
-    let mut command = Command::new(&job.advanced_settings.yt_dlp_path);
+    // Resolve yt-dlp binary path with priority:
+    // 1. Absolute/relative path if specified
+    // 2. Bundled with executable
+    // 3. System PATH
+    let yt_dlp_path = resolve_binary(&job.advanced_settings.yt_dlp_path)
+        .unwrap_or_else(|| job.advanced_settings.yt_dlp_path.clone());
+
+    let mut command = Command::new(&yt_dlp_path);
 
     // Hide command window on Windows
     #[cfg(target_os = "windows")]

@@ -118,7 +118,7 @@ async fn check_binary(binary: &str, args: &[&str]) -> Result<DependencyCheck, De
 }
 
 /// Get the directory where the current executable is located
-fn get_executable_dir() -> Option<PathBuf> {
+pub fn get_executable_dir() -> Option<PathBuf> {
     std::env::current_exe()
         .ok()
         .and_then(|exe_path| exe_path.parent().map(|p| p.to_path_buf()))
@@ -128,7 +128,7 @@ fn get_executable_dir() -> Option<PathBuf> {
 /// 1. If candidate is an absolute/relative path, check if it exists
 /// 2. Check in the same directory as the executable
 /// 3. Check in PATH
-fn resolve_binary(candidate: &Path) -> Option<PathBuf> {
+pub fn resolve_binary(candidate: &Path) -> Option<PathBuf> {
     // If candidate is a multi-component path, treat it as absolute/relative path
     if candidate.components().count() > 1 {
         if candidate.exists() {
